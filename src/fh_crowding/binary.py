@@ -226,15 +226,24 @@ class BinaryCrowdingModel(Cosolute):
         
         return self.cal_muCsurf(corr_phiSsurf,corr_phiCmix,corr_phiSmix) - (self.nu)*self.cal_muSsurf(corr_phiCsurf,corr_phiCmix,corr_phiSmix) - self.muC[i] + (self.nu)*self.muS[i]
 
-    def solve_equil(self):
+    def solve_equil(self, callback=None):
         '''Solve the equilibrium condition across the concentration range.
 
         Uses rolling initial guesses to accelerate fsolve convergence.
+
+        Args:
+            callback: Optional callable ``(fraction: float) -> None`` invoked
+                during the solve to report progress in [0, 1].  At most ~100
+                calls are made regardless of grid size (one call per ~1 % of
+                progress).  Pass ``None`` (default) to disable — notebooks are
+                unaffected.
         '''
+        n = len(self.phiC)
+        report_every = max(1, n // 100)   # report at most ~100 times
         a = self.a
         A: list = []
         guess: Optional[float] = None
-        for i in range(len(self.phiC)):
+        for i in range(n):
             if not isinstance(a, float):
                 self.a = a[i]
             if guess is None:
@@ -245,6 +254,8 @@ class BinaryCrowdingModel(Cosolute):
                 self.phiCsurf[i] = fsolve(self.condition, float(self.phiC[i]), args=(i,))[0]
             A.append(self.a)
             guess = float(self.phiCsurf[i])
+            if callback is not None and ((i + 1) % report_every == 0 or i == n - 1):
+                callback((i + 1) / n)
         if not isinstance(a, float):
             self.a = np.array(A)
         self.flag = True

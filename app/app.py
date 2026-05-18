@@ -7,43 +7,77 @@ import fh_crowding
 st.set_page_config(page_title="FH Crowding Model", layout="wide")
 
 # ---------------------------------------------------------------------------
-# Cosolute database
+# Cosolute database — individual cosolutes
 # Parameters from: Rösgen & Auton, JACS 2023 (DOI: 10.1021/jacs.3c08702), SI.
-# nu: excluded volume parameter
-# chi: Flory-Huggins non-ideal mixing parameter
-# chiTS: entropy component of chi
+# nu: excluded volume; chi: FH non-ideal mixing; chiTS: entropy component of chi
 # ---------------------------------------------------------------------------
 COSOLUTE_DB = {
-    "Custom":     {"nu":  1.00, "chi":  0.000, "chiTS":  0.000},
-    "Glycerol":   {"nu":  3.95, "chi":  0.233, "chiTS": -0.480},
-    "Glucose":    {"nu":  6.27, "chi":  0.317, "chiTS": -0.317},
-    "Galactose":  {"nu":  6.26, "chi":  0.350, "chiTS": -1.070},
-    "Sorbitol":   {"nu":  6.71, "chi":  0.381, "chiTS": -0.290},
-    "Trehalose":  {"nu": 11.70, "chi":  0.433, "chiTS": -1.120},
-    "Sucrose":    {"nu": 11.90, "chi":  0.452, "chiTS": -0.854},
+    "Custom":    {"nu":  1.000, "chi":  0.000, "chiTS":  0.000},
+    "Glycerol":  {"nu":  3.950, "chi":  0.233, "chiTS": -0.480},
+    "Glucose":   {"nu":  6.270, "chi":  0.317, "chiTS": -0.317},
+    "Galactose": {"nu":  6.260, "chi":  0.350, "chiTS": -1.070},
+    "Sorbitol":  {"nu":  6.710, "chi":  0.381, "chiTS": -0.290},
+    "Trehalose": {"nu": 11.700, "chi":  0.433, "chiTS": -1.120},
+    "Sucrose":   {"nu": 11.900, "chi":  0.452, "chiTS": -0.854},
+    "Urea":      {"nu":  2.479, "chi":  0.610, "chiTS": -3.650},
+    "TMAO":      {"nu":  3.980, "chi": -0.680, "chiTS": -5.708},
 }
 
-COSOLUTE_NAMES = list(COSOLUTE_DB.keys())
+# ---------------------------------------------------------------------------
+# Cosolute pair database — ternary presets
+# Specifies which individual cosolutes make up the pair and their cross-
+# interaction parameters chi23 / chiTS23.
+# ---------------------------------------------------------------------------
+COSOLUTE_PAIR_DB = {
+    "Custom":               {"c2": "Custom",   "c3": "Custom",    "chi23":  0.000, "chiTS23":   0.000},
+    "Glycerol + Trehalose": {"c2": "Glycerol", "c3": "Trehalose", "chi23":  4.500, "chiTS23":  10.000},
+    "Urea + TMAO":          {"c2": "Urea",     "c3": "TMAO",      "chi23":  0.963, "chiTS23": -38.810},
+}
+
+COSOLUTE_NAMES      = list(COSOLUTE_DB.keys())
+COSOLUTE_PAIR_NAMES = list(COSOLUTE_PAIR_DB.keys())
 
 
+# ---------------------------------------------------------------------------
+# Callbacks
+# ---------------------------------------------------------------------------
 def _sync_cosolute(select_key: str, nu_key: str, chi_key: str, chiTS_key: str) -> None:
-    """on_change callback: copy preset params into session_state for the number_input widgets."""
+    """Fill nu / chi / chiTS from a single-cosolute preset."""
     params = COSOLUTE_DB[st.session_state[select_key]]
     st.session_state[nu_key]    = params["nu"]
     st.session_state[chi_key]   = params["chi"]
     st.session_state[chiTS_key] = params["chiTS"]
 
 
+def _sync_cosolute_pair() -> None:
+    """Fill all ternary parameters from a cosolute-pair preset."""
+    pair = COSOLUTE_PAIR_DB[st.session_state["tern_pair_select"]]
+    c2 = COSOLUTE_DB[pair["c2"]]
+    c3 = COSOLUTE_DB[pair["c3"]]
+    st.session_state["nu2"]     = c2["nu"]
+    st.session_state["chi12"]   = c2["chi"]
+    st.session_state["chiTS12"] = c2["chiTS"]
+    st.session_state["nu3"]     = c3["nu"]
+    st.session_state["chi13"]   = c3["chi"]
+    st.session_state["chiTS13"] = c3["chiTS"]
+    st.session_state["chi23"]   = pair["chi23"]
+    st.session_state["chiTS23"] = pair["chiTS23"]
+    st.session_state["tern_cosolute2_select"] = pair["c2"]
+    st.session_state["tern_cosolute3_select"] = pair["c3"]
+
+
 # ---------------------------------------------------------------------------
-# Initialise session state with sensible defaults (only on first load)
+# Initialise session state defaults (only on first load)
 # ---------------------------------------------------------------------------
 _defaults = {
-    # binary
-    "bin_nu":   1.0,  "bin_chi":  0.1,  "bin_chiTS": -0.05,
+    # binary cosolute
+    "bin_nu":    1.0,  "bin_chi":   0.1,  "bin_chiTS":  -0.05,
     # ternary cosolute 2
-    "nu2":      1.0,  "chi12":    0.1,  "chiTS12":  -0.05,
+    "nu2":       1.0,  "chi12":     0.1,  "chiTS12":    -0.05,
     # ternary cosolute 3
-    "nu3":      1.0,  "chi13":    0.1,  "chiTS13":  -0.05,
+    "nu3":       1.0,  "chi13":     0.1,  "chiTS13":    -0.05,
+    # ternary cross-interaction
+    "chi23":     0.0,  "chiTS23":   0.0,
 }
 for _k, _v in _defaults.items():
     if _k not in st.session_state:
@@ -70,7 +104,7 @@ T = st.sidebar.number_input("Temperature (K)", value=298.15) if use_T else 298.1
 
 
 # ---------------------------------------------------------------------------
-# Sidebar — Binary model parameters
+# Sidebar — Binary model
 # ---------------------------------------------------------------------------
 if model_type == "Binary Crowding Model":
     st.sidebar.subheader("Cosolute")
@@ -86,27 +120,54 @@ if model_type == "Binary Crowding Model":
             "chi_key":    "bin_chi",
             "chiTS_key":  "bin_chiTS",
         },
-        help="Choosing a preset cosolute fills nu, chi, chiTS automatically. "
+        help="Choosing a preset fills nu, chi, chiTS automatically. "
              "You can still edit the values below manually.",
     )
 
-    nu    = st.sidebar.number_input("nu",    key="bin_nu",   step=0.01, format="%.4f")
-    chi   = st.sidebar.number_input("chi",   key="bin_chi",  step=0.01, format="%.4f")
-    chiTS = st.sidebar.number_input("chiTS", key="bin_chiTS",step=0.01, format="%.4f")
+    nu    = st.sidebar.number_input("nu",    key="bin_nu",    step=0.01, format="%.4f")
+    chi   = st.sidebar.number_input("chi",   key="bin_chi",   step=0.01, format="%.4f")
+    chiTS = st.sidebar.number_input("chiTS", key="bin_chiTS", step=0.01, format="%.4f")
 
     st.sidebar.subheader("Soft Interaction Parameters")
     eps   = st.sidebar.number_input("eps",   value=0.0, step=0.01, format="%.4f")
     epsTS = st.sidebar.number_input("epsTS", value=0.0, step=0.01, format="%.4f")
 
-    cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
-    model = fh_crowding.BinaryCrowdingModel(
-        protein=protein, cosolute=cosolute, eps=eps, epsTS=epsTS, T=T
+    st.sidebar.subheader("Concentration Grid")
+    dphiC = st.sidebar.number_input(
+        "dphiC (step size)",
+        value=0.001,
+        min_value=1e-5,
+        max_value=0.05,
+        step=0.0005,
+        format="%.5f",
+        help="Concentration grid step size. Smaller = finer grid, slower simulation. "
+             "Package default: 0.0001. App default: 0.001 (10× faster).",
     )
 
+    cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
+    model = fh_crowding.BinaryCrowdingModel(
+        protein=protein, cosolute=cosolute, eps=eps, epsTS=epsTS,
+        dphiC=dphiC, T=T,
+    )
+
+
 # ---------------------------------------------------------------------------
-# Sidebar — Ternary model parameters
+# Sidebar — Ternary model
 # ---------------------------------------------------------------------------
 else:
+    # --- Cosolute pair preset (top-level shortcut) ---
+    st.sidebar.subheader("Cosolute Pair Preset")
+    st.sidebar.selectbox(
+        "Select cosolute pair",
+        COSOLUTE_PAIR_NAMES,
+        key="tern_pair_select",
+        on_change=_sync_cosolute_pair,
+        help="Selecting a pair fills all cosolute and cross-interaction parameters at once. "
+             "You can still fine-tune individual values below.",
+    )
+
+    st.sidebar.markdown("---")
+
     # --- Cosolute 2 ---
     st.sidebar.subheader("Cosolute 2")
     st.sidebar.selectbox(
@@ -120,13 +181,13 @@ else:
             "chi_key":    "chi12",
             "chiTS_key":  "chiTS12",
         },
-        help="Choosing a preset fills nu2, chi12, chiTS12 automatically.",
+        help="Overrides cosolute-2 parameters only.",
     )
-    nu2    = st.sidebar.number_input("nu2",    key="nu2",    step=0.01, format="%.4f")
-    chi12  = st.sidebar.number_input("chi12",  key="chi12",  step=0.01, format="%.4f")
-    chiTS12= st.sidebar.number_input("chiTS12",key="chiTS12",step=0.01, format="%.4f")
-    eps2   = st.sidebar.number_input("eps2",   value=0.0, step=0.01, format="%.4f")
-    epsTS2 = st.sidebar.number_input("epsTS2", value=0.0, step=0.01, format="%.4f")
+    nu2     = st.sidebar.number_input("nu2",     key="nu2",     step=0.01, format="%.4f")
+    chi12   = st.sidebar.number_input("chi12",   key="chi12",   step=0.01, format="%.4f")
+    chiTS12 = st.sidebar.number_input("chiTS12", key="chiTS12", step=0.01, format="%.4f")
+    eps2    = st.sidebar.number_input("eps2",    value=0.0, step=0.01, format="%.4f")
+    epsTS2  = st.sidebar.number_input("epsTS2",  value=0.0, step=0.01, format="%.4f")
 
     # --- Cosolute 3 ---
     st.sidebar.subheader("Cosolute 3")
@@ -141,20 +202,41 @@ else:
             "chi_key":    "chi13",
             "chiTS_key":  "chiTS13",
         },
-        help="Choosing a preset fills nu3, chi13, chiTS13 automatically.",
+        help="Overrides cosolute-3 parameters only.",
     )
-    nu3    = st.sidebar.number_input("nu3",    key="nu3",    step=0.01, format="%.4f")
-    chi13  = st.sidebar.number_input("chi13",  key="chi13",  step=0.01, format="%.4f")
-    chiTS13= st.sidebar.number_input("chiTS13",key="chiTS13",step=0.01, format="%.4f")
-    eps3   = st.sidebar.number_input("eps3",   value=0.0, step=0.01, format="%.4f")
-    epsTS3 = st.sidebar.number_input("epsTS3", value=0.0, step=0.01, format="%.4f")
+    nu3     = st.sidebar.number_input("nu3",     key="nu3",     step=0.01, format="%.4f")
+    chi13   = st.sidebar.number_input("chi13",   key="chi13",   step=0.01, format="%.4f")
+    chiTS13 = st.sidebar.number_input("chiTS13", key="chiTS13", step=0.01, format="%.4f")
+    eps3    = st.sidebar.number_input("eps3",    value=0.0, step=0.01, format="%.4f")
+    epsTS3  = st.sidebar.number_input("epsTS3",  value=0.0, step=0.01, format="%.4f")
 
     # --- Cosolute–cosolute interactions ---
     st.sidebar.subheader("Cosolute–Cosolute Interactions")
-    chi23   = st.sidebar.number_input("chi23",   value=0.0, step=0.01, format="%.4f")
-    chiTS23 = st.sidebar.number_input("chiTS23", value=0.0, step=0.01, format="%.4f")
+    chi23   = st.sidebar.number_input("chi23",   key="chi23",   step=0.01, format="%.4f")
+    chiTS23 = st.sidebar.number_input("chiTS23", key="chiTS23", step=0.01, format="%.4f")
     eps23   = st.sidebar.number_input("eps23",   value=0.0, step=0.01, format="%.4f")
     epsTS23 = st.sidebar.number_input("epsTS23", value=0.0, step=0.01, format="%.4f")
+
+    # --- Concentration grid ---
+    st.sidebar.subheader("Concentration Grid")
+    dphi2 = st.sidebar.number_input(
+        "dphi2 (step size for cosolute 2)",
+        value=0.001,
+        min_value=1e-5,
+        max_value=0.05,
+        step=0.0005,
+        format="%.5f",
+        help="Grid step for cosolute 2 axis. Package default: 0.0001. App default: 0.001.",
+    )
+    dphi3 = st.sidebar.number_input(
+        "dphi3 (step size for cosolute 3)",
+        value=0.001,
+        min_value=1e-5,
+        max_value=0.05,
+        step=0.0005,
+        format="%.5f",
+        help="Grid step for cosolute 3 axis. Package default: 0.0001. App default: 0.001.",
+    )
 
     cosolutes = fh_crowding.CosoluteMixture(
         nu2=nu2, nu3=nu3,
@@ -165,6 +247,7 @@ else:
         protein=protein, cosolutes=cosolutes,
         eps2=eps2, eps3=eps3, eps23=eps23,
         epsTS2=epsTS2, epsTS3=epsTS3, epsTS23=epsTS23,
+        dphi2=dphi2, dphi3=dphi3,
         T=T,
     )
 
@@ -177,32 +260,41 @@ tab1, tab2 = st.tabs(["Simulation", "Data Fitting"])
 with tab1:
     st.header("Forward Simulation")
     if st.button("Run Simulation"):
-        with st.spinner("Solving equilibrium..."):
-            try:
-                model.solve_equil()
-                model.to_pandas()
-                st.success("Simulation complete!")
+        progress_bar = st.progress(0, text="Solving equilibrium... 0%")
 
-                st.subheader("Data Export")
-                csv = model.results.to_csv(index=False)
-                st.download_button(
-                    "Download Results CSV",
-                    data=csv,
-                    file_name="simulation_results.csv",
-                    mime="text/csv",
-                )
+        def update_progress(frac: float) -> None:
+            progress_bar.progress(frac, text=f"Solving equilibrium... {int(frac * 100)}%")
 
-                st.subheader("Plots")
-                if model_type == "Binary Crowding Model":
-                    plotter = fh_crowding.BinaryPlotter(model)
-                    fig = plotter.plot_results()
-                    st.pyplot(fig)
-                else:
-                    plotter = fh_crowding.TernaryPlotter(model)
-                    fig = plotter.plot_ddG()
-                    st.pyplot(fig)
-            except Exception as e:
-                st.error(f"Error during simulation: {e}")
+        try:
+            kw = {"callback": update_progress}
+            if model_type == "Ternary Crowding Model":
+                kw["print_msg"] = False  # suppress per-point fsolve warnings in the app
+            model.solve_equil(**kw)
+            progress_bar.progress(1.0, text="Equilibrium solved!")
+
+            model.to_pandas()
+            st.success("Simulation complete!")
+
+            st.subheader("Data Export")
+            csv = model.results.to_csv(index=False)
+            st.download_button(
+                "Download Results CSV",
+                data=csv,
+                file_name="simulation_results.csv",
+                mime="text/csv",
+            )
+
+            st.subheader("Plots")
+            if model_type == "Binary Crowding Model":
+                plotter = fh_crowding.BinaryPlotter(model)
+                fig = plotter.plot_results()
+                st.pyplot(fig)
+            else:
+                plotter = fh_crowding.TernaryPlotter(model)
+                fig = plotter.plot_ddG()
+                st.pyplot(fig)
+        except Exception as e:
+            st.error(f"Error during simulation: {e}")
 
 with tab2:
     st.header("Data Fitting")

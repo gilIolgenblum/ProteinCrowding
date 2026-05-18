@@ -258,7 +258,7 @@ class TernaryCrowdingModel(CosoluteMixture):
                     mu3s3-self.mu3[i,j]+self.nu3*(self.mu1[i,j]-mu1s3)]
 
 
-    def solve_equil(self, print_msg: bool = True):
+    def solve_equil(self, print_msg: bool = True, callback=None):
         '''Solve the equilibrium condition over the phi2/phi3 grid.
 
         Records per-point convergence diagnostics in:
@@ -266,15 +266,24 @@ class TernaryCrowdingModel(CosoluteMixture):
           - self.flags: int array of fsolve ier
           - self.messages: object array of fsolve messages
         Optionally prints failures when print_msg=True.
+
+        Args:
+            callback: Optional callable ``(fraction: float) -> None`` invoked
+                once per outer row to report progress in [0, 1].  To avoid
+                excessive overhead, it is called at most every
+                ``max(1, n_rows // 100)`` rows (~1 % increments).  Pass
+                ``None`` (default) to disable — notebooks are unaffected.
         '''
         shape = self.phi2.shape
+        n_rows = shape[0]
+        report_every = max(1, n_rows // 100)  # report at most ~100 times
         self.converged = np.zeros(shape, dtype=bool)
         self.flags = np.zeros(shape, dtype=int)
         self.messages = np.empty(shape, dtype=object)
         self.messages[:] = ''
 
         I, J = [], []
-        for i in range(shape[0]):
+        for i in range(n_rows):
             for j in range(shape[1]):
                 if np.isnan(self.phi1[i, j]):
                     self.phi2s[i, j], self.phi3s[i, j], self.phi2s2[i, j], self.phi2s3[i, j], self.phi3s3[i, j] = np.nan, np.nan, np.nan, np.nan, np.nan
@@ -304,6 +313,9 @@ class TernaryCrowdingModel(CosoluteMixture):
                 else:
                     self.converged[i, j] = True
 
+            # report progress at most ~100 times (every ~1 %)
+            if callback is not None and ((i + 1) % report_every == 0 or i == n_rows - 1):
+                callback((i + 1) / n_rows)
         for i, j in zip(I, J):
             self.phi2s[i, j], self.phi3s[i, j], self.phi2s2[i, j], self.phi2s3[i, j], self.phi3s3[i, j] = np.nan, np.nan, np.nan, np.nan, np.nan
         self.phi1s = 1 - self.phi2s - self.phi3s
