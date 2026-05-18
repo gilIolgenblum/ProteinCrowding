@@ -69,27 +69,26 @@ with tab1:
     st.header("Forward Simulation")
     if st.button("Run Simulation"):
         with st.spinner("Solving equilibrium..."):
-            model.solve_equil()
-            model.to_pandas()
-            st.success("Simulation complete!")
-            
-            st.subheader("Data Export")
-            csv = model.results.to_csv(index=False)
-            st.download_button("Download Results CSV", data=csv, file_name="simulation_results.csv", mime="text/csv")
-            
-            st.subheader("Plots")
-            if model_type == "Binary Crowding Model":
-                plotter = fh_crowding.BinaryPlotter(model)
-                st.pyplot(plotter.plot_results().figure)
-            else:
-                plotter = fh_crowding.TernaryPlotter(model)
-                # Ternary models plot inline, so we have to capture the figures or rewrite the plotter to return figures
-                st.info("Ternary plotting currently relies on pyplot.show(), so it might plot directly to the backend. We'll show a sample plot.")
-                # Since the plotter calls plt.show(), we override it locally or use it correctly if modified.
-                # In this basic version we just trigger one plot as example
-                import matplotlib.pyplot as plt
-                plotter.plot_ddG()
-                st.pyplot(plt.gcf())
+            try:
+                model.solve_equil()
+                model.to_pandas()
+                st.success("Simulation complete!")
+                
+                st.subheader("Data Export")
+                csv = model.results.to_csv(index=False)
+                st.download_button("Download Results CSV", data=csv, file_name="simulation_results.csv", mime="text/csv")
+                
+                st.subheader("Plots")
+                if model_type == "Binary Crowding Model":
+                    plotter = fh_crowding.BinaryPlotter(model)
+                    fig = plotter.plot_results()
+                    st.pyplot(fig)
+                else:
+                    plotter = fh_crowding.TernaryPlotter(model)
+                    fig = plotter.plot_ddG()
+                    st.pyplot(fig)
+            except Exception as e:
+                st.error(f"Error during simulation: {e}")
 
 with tab2:
     st.header("Data Fitting")
@@ -102,23 +101,47 @@ with tab2:
         
         if "Format 1" in bin_format:
             file = st.file_uploader("Upload CSV")
-            if file and st.button("Fit epsTS"):
-                df = pd.read_csv(file)
-                if 'dG' in df.columns:
-                    model.fit_eps(df['concentration'].values, df['dG'].values, concentration_type=conc_type)
-                    st.write("Fitted eps:", model.eps)
-                if 'dH' in df.columns and 'TdS' in df.columns:
-                    model.fit_epsTS(df['concentration'].values, df['dH'].values, df['TdS'].values, concentration_type=conc_type)
-                    st.write("Fitted epsTS:", model.epsTS)
+            if file and st.button("Fit Data"):
+                try:
+                    df = pd.read_csv(file)
+                    if 'dG' not in df.columns and ('dH' not in df.columns or 'TdS' not in df.columns):
+                        st.error("Uploaded CSV is missing expected columns. Need 'dG' or both 'dH' and 'TdS'.")
+                    else:
+                        if 'dG' in df.columns:
+                            model.fit_eps(df['concentration'].values, df['dG'].values, concentration_type=conc_type)
+                            st.write("Fitted eps:", model.eps)
+                        if 'dH' in df.columns and 'TdS' in df.columns:
+                            model.fit_epsTS(df['concentration'].values, df['dH'].values, df['TdS'].values, concentration_type=conc_type)
+                            st.write("Fitted epsTS:", model.epsTS)
+                except Exception as e:
+                    st.error(f"Error during fitting: {e}")
         else:
             f1 = st.file_uploader("Upload dG CSV")
             f2 = st.file_uploader("Upload dH CSV")
             f3 = st.file_uploader("Upload TdS CSV")
-            if f2 and f3 and st.button("Fit epsTS"):
-                df_H = pd.read_csv(f2)
-                df_S = pd.read_csv(f3)
-                model.fit_epsTS(df_H['concentration'].values, df_H['dH'].values, df_S['TdS'].values, concentration_type=conc_type)
-                st.write("Fitted epsTS:", model.epsTS)
+            
+            if f1 and st.button("Fit eps (from dG)"):
+                try:
+                    df_G = pd.read_csv(f1)
+                    if 'concentration' not in df_G.columns or 'dG' not in df_G.columns:
+                        st.error("CSV must contain 'concentration' and 'dG' columns.")
+                    else:
+                        model.fit_eps(df_G['concentration'].values, df_G['dG'].values, concentration_type=conc_type)
+                        st.write("Fitted eps:", model.eps)
+                except Exception as e:
+                    st.error(f"Error during fitting: {e}")
+                    
+            if f2 and f3 and st.button("Fit epsTS (from dH, TdS)"):
+                try:
+                    df_H = pd.read_csv(f2)
+                    df_S = pd.read_csv(f3)
+                    if 'concentration' not in df_H.columns or 'dH' not in df_H.columns or 'TdS' not in df_S.columns:
+                        st.error("CSVs must contain 'concentration', 'dH', and 'TdS' columns.")
+                    else:
+                        model.fit_epsTS(df_H['concentration'].values, df_H['dH'].values, df_S['TdS'].values, concentration_type=conc_type)
+                        st.write("Fitted epsTS:", model.epsTS)
+                except Exception as e:
+                    st.error(f"Error during fitting: {e}")
     else:
         tern_format = st.radio("CSV Format", ["Format 1: Columns (conc2, conc3, potential)", "Format 2: 2D Matrices"])
         f1 = st.file_uploader("Upload dG CSV (Ternary)")
@@ -127,9 +150,30 @@ with tab2:
         
         if f1 and st.button("Fit eps2 & eps3 (from dG)"):
             if "Format 1" in tern_format:
-                df = pd.read_csv(f1)
-                model.fit_eps(df['conc2'].values, df['conc3'].values, df['dG'].values, concentration_type=conc_type)
-                st.write("Fitted eps2:", model.eps2, "eps3:", model.eps3)
+                try:
+                    df = pd.read_csv(f1)
+                    if 'conc2' not in df.columns or 'conc3' not in df.columns or 'dG' not in df.columns:
+                        st.error("CSV must contain 'conc2', 'conc3', and 'dG' columns.")
+                    else:
+                        model.fit_eps(df['conc2'].values, df['conc3'].values, df['dG'].values, concentration_type=conc_type)
+                        st.write("Fitted eps2:", model.eps2, "eps3:", model.eps3)
+                except Exception as e:
+                    st.error(f"Error during fitting: {e}")
+            else:
+                st.warning("Matrix parsing not yet implemented dynamically. Ensure standard formatting.")
+
+        if f2 and f3 and st.button("Fit epsTS2 & epsTS3 (from dH, TdS)"):
+            if "Format 1" in tern_format:
+                try:
+                    df_H = pd.read_csv(f2)
+                    df_S = pd.read_csv(f3)
+                    if 'conc2' not in df_H.columns or 'conc3' not in df_H.columns or 'dH' not in df_H.columns or 'TdS' not in df_S.columns:
+                        st.error("CSVs must contain 'conc2', 'conc3', 'dH', and 'TdS' columns.")
+                    else:
+                        model.fit_epsTS(df_H['conc2'].values, df_H['conc3'].values, df_H['dH'].values, df_S['TdS'].values, concentration_type=conc_type)
+                        st.write("Fitted epsTS2:", model.epsTS2, "epsTS3:", model.epsTS3)
+                except Exception as e:
+                    st.error(f"Error during fitting: {e}")
             else:
                 st.warning("Matrix parsing not yet implemented dynamically. Ensure standard formatting.")
 

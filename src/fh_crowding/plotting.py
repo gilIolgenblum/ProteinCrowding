@@ -49,7 +49,7 @@ class BinaryPlotter:
             TddS, TddS_nu, TddS_chi, TddS_eps = self.model.TddS_kcal, self.model.TddS_nu_kcal, self.model.TddS_chi_kcal, self.model.TddS_eps_kcal
             units = '[kcal]'
             
-        _, axes = plt.subplots(ncols=3, nrows=3, figsize=(8, 8), layout="constrained")
+        fig, axes = plt.subplots(ncols=3, nrows=3, figsize=(8, 8), layout="constrained")
         axes[0,0].plot(conc, self.model.gamma)
         axes[0,0].set_xlabel(str_conc)
         axes[0,0].set_ylabel(r'$\Delta\Gamma_S$')
@@ -122,7 +122,7 @@ class BinaryPlotter:
         axes[2,2].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
         axes[2,2].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
         axes[2,2].locator_params(axis='both', nbins=3)
-        plt.show()
+        return fig
 
 
 class TernaryPlotter:
@@ -161,7 +161,7 @@ class TernaryPlotter:
         axes[2].set_ylabel(r'$\phi_3$')
         axes[2].set_title(r'$\phi_3^{s}$')
         fig.colorbar(cp2)
-        plt.show()
+        return fig
         
     def plot_Ms(self):
         fig, axes = plt.subplots(ncols=4, nrows=2, figsize=(12,4), layout="constrained")
@@ -265,7 +265,7 @@ class TernaryPlotter:
         axes[1,3].set_xlim(right=np.nanmax(self.model.phi2), left=0)
         axes[1,3].set_ylim(top=np.nanmax(self.model.phi3), bottom=0)
 
-        plt.show()
+        return fig
         
     def plot_mus2(self):
         fig, axes = plt.subplots(ncols=2, nrows=1, figsize=(8,3), layout="constrained")
@@ -293,7 +293,7 @@ class TernaryPlotter:
         fig.colorbar(cp0)
         axes[1].set_xlim(right=np.nanmax(self.model.phi2), left=0)
         axes[1].set_ylim(top=np.nanmax(self.model.phi3), bottom=0)
-        plt.show()
+        return fig
 
         
     def plot_mus3(self):
@@ -334,7 +334,7 @@ class TernaryPlotter:
         fig.colorbar(cp0)
         axes[2].set_xlim(right=np.nanmax(self.model.phi2), left=0)
         axes[2].set_ylim(top=np.nanmax(self.model.phi3), bottom=0)
-        plt.show()
+        return fig
         
     def plot_equil_cond(self):
         fig, axes = plt.subplots(ncols=3, nrows=1, figsize=(15,4), layout="constrained")
@@ -380,7 +380,7 @@ class TernaryPlotter:
         fig.colorbar(cp0)
         axes[2].set_xlim(right=np.nanmax(self.model.phi2), left=0)
         axes[2].set_ylim(top=np.nanmax(self.model.phi3), bottom=0)
-        plt.show()
+        return fig
         
     def plot_TdS_mix(self):
         fig, axes = plt.subplots(ncols=3, nrows=2, figsize=(12,6), layout="constrained")
@@ -451,7 +451,7 @@ class TernaryPlotter:
         fig.colorbar(cp0)
         axes[1,2].set_xlim(right=np.nanmax(self.model.phi2s), left=0)
         axes[1,2].set_ylim(top=np.nanmax(self.model.phi3s), bottom=0)
-        plt.show()
+        return fig
         
     def plot_dG_mix(self):
         fig, axes = plt.subplots(ncols=3, nrows=2, figsize=(12,6), layout="constrained")
@@ -528,7 +528,7 @@ class TernaryPlotter:
         fig.colorbar(cp0)
         axes[1,2].set_xlim(right=np.nanmax(self.model.phi2s), left=0)
         axes[1,2].set_ylim(top=np.nanmax(self.model.phi3s), bottom=0)
-        plt.show()
+        return fig
 
     def plot_ddG(self):
         fig, axes = plt.subplots(ncols=3, nrows=3, figsize=(8,6), layout="constrained")
@@ -612,7 +612,7 @@ class TernaryPlotter:
         axes[2,2].set_ylabel(r'$\phi_3$')
         axes[2,2].set_title(r'$\Delta\Delta G^0_{\varepsilon_{23}}/(k T)$')
         fig.colorbar(cp0)
-        plt.show()
+        return fig
 
     def plot_ddG_mu(self):
         fig, axes = plt.subplots(ncols=2, nrows=2, figsize=(8,6), layout="constrained")
@@ -656,7 +656,7 @@ class TernaryPlotter:
         axes[1,1].set_ylabel(r'$\mu_3$')
         axes[1,1].set_title(r'$\Delta\Delta G^0_\varepsilon/(k T)$')
         fig.colorbar(cp0)
-        plt.show()
+        return fig
         
     def plot_TddS(self):
         fig, axes = plt.subplots(ncols=2, nrows=2, figsize=(8,6), layout="constrained")
@@ -700,7 +700,7 @@ class TernaryPlotter:
         axes[1,1].set_ylabel(r'$\phi_3$')
         axes[1,1].set_title(r'$T\Delta\Delta S^0_\varepsilon/(k T)$')
         fig.colorbar(cp0)
-        plt.show()
+        return fig
         
     def plot_ddH(self):
         fig, axes = plt.subplots(ncols=3, nrows=1, figsize=(10,3), layout="constrained")
@@ -734,7 +734,7 @@ class TernaryPlotter:
         axes[2].set_ylabel(r'$\phi_3$')
         axes[2].set_title(r'$\Delta\Delta H^0_\varepsilon/(k T)$')
         fig.colorbar(cp0)
-        plt.show()
+        return fig
 
     def plot_Gamma(self):
         fig, axes = plt.subplots(ncols=2, nrows=2, figsize=(8,6), layout="constrained")
@@ -778,7 +778,7 @@ class TernaryPlotter:
         axes[1,1].set_ylabel(r'$\phi_3$')
         axes[1,1].set_title(r'$\Delta \Gamma_{1,3}$')
         fig.colorbar(cp0)
-        plt.show()
+        return fig
 
     def plot_Gamma_mu(self):
         fig, axes = plt.subplots(ncols=2, nrows=2, figsize=(8,6), layout="constrained")
@@ -822,7 +822,7 @@ class TernaryPlotter:
         axes[1,1].set_ylabel(r'$\mu_3$')
         axes[1,1].set_title(r'$\Delta \Gamma_{1,3}$')
         fig.colorbar(cp0)
-        plt.show()
+        return fig
 
         
     def plot_Gamma_mu_der(self):
@@ -848,5 +848,5 @@ class TernaryPlotter:
         axes[1].set_ylabel(r'$\mu_3$')
         axes[1].set_title(r'$\Delta \Gamma_3$')
         fig.colorbar(cp0)
-        plt.show()
+        return fig
               
