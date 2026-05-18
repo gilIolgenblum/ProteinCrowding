@@ -1,7 +1,16 @@
-*csv
-*png
-*jpeg
-*dat
-*txt
+# Ignore the output directory
+output/
+
+# Python caches
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Ignore Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Original notebook ignores
 *fit_syn*
 syn*
+*.egg-info/
