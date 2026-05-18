@@ -357,6 +357,13 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             key="uploaded_conc_unit",
             help="Choose the concentration unit used in your uploaded experimental CSV files."
         )
+        uploaded_energy_unit = st.selectbox(
+            "CSV Energy Unit",
+            ["kcal/mol", "kJ/mol"],
+            key="uploaded_energy_unit",
+            help="Choose the energy unit used in your uploaded CSV files. They will be automatically converted to kJ/mol for consistent fitting."
+        )
+        energy_mult = 4.184 if uploaded_energy_unit == "kcal/mol" else 1.0
         
     with col_u2:
         if model_type == "Binary Crowding Model":
@@ -378,23 +385,23 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                         st.session_state["exp_data_loaded"] = True
                         
                         if "dG" in df.columns:
-                            st.session_state["exp_ddG"] = df["dG"].values
+                            st.session_state["exp_ddG"] = df["dG"].values * energy_mult
                         if "err_dG" in df.columns:
-                            st.session_state["err_ddG"] = df["err_dG"].values
+                            st.session_state["err_ddG"] = df["err_dG"].values * energy_mult
                         else:
                             st.session_state["err_ddG"] = np.nan
                             
                         if "dH" in df.columns:
-                            st.session_state["exp_ddH"] = df["dH"].values
+                            st.session_state["exp_ddH"] = df["dH"].values * energy_mult
                         if "err_dH" in df.columns:
-                            st.session_state["err_ddH"] = df["err_dH"].values
+                            st.session_state["err_ddH"] = df["err_dH"].values * energy_mult
                         else:
                             st.session_state["err_ddH"] = np.nan
                             
                         if "TdS" in df.columns:
-                            st.session_state["exp_TddS"] = df["TdS"].values
+                            st.session_state["exp_TddS"] = df["TdS"].values * energy_mult
                         if "err_TdS" in df.columns:
-                            st.session_state["err_TddS"] = df["err_TdS"].values
+                            st.session_state["err_TddS"] = df["err_TdS"].values * energy_mult
                         else:
                             st.session_state["err_TddS"] = np.nan
                             
@@ -412,8 +419,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     df = pd.read_csv(f_G)
                     if "concentration" in df.columns and "dG" in df.columns:
                         st.session_state["exp_conc_G"] = df["concentration"].values
-                        st.session_state["exp_ddG"] = df["dG"].values
-                        st.session_state["err_ddG"] = df["err_dG"].values if "err_dG" in df.columns else np.nan
+                        st.session_state["exp_ddG"] = df["dG"].values * energy_mult
+                        st.session_state["err_ddG"] = (df["err_dG"].values * energy_mult) if "err_dG" in df.columns else np.nan
                         st.session_state["exp_data_loaded"] = True
                         st.success("dG experimental data loaded!")
                         
@@ -421,8 +428,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     df = pd.read_csv(f_H)
                     if "concentration" in df.columns and "dH" in df.columns:
                         st.session_state["exp_conc_T"] = df["concentration"].values
-                        st.session_state["exp_ddH"] = df["dH"].values
-                        st.session_state["err_ddH"] = df["err_dH"].values if "err_dH" in df.columns else np.nan
+                        st.session_state["exp_ddH"] = df["dH"].values * energy_mult
+                        st.session_state["err_ddH"] = (df["err_dH"].values * energy_mult) if "err_dH" in df.columns else np.nan
                         st.session_state["exp_data_loaded"] = True
                         st.success("dH experimental data loaded!")
                         
@@ -430,8 +437,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     df = pd.read_csv(f_S)
                     if "concentration" in df.columns and "TdS" in df.columns:
                         st.session_state["exp_conc_T"] = df["concentration"].values
-                        st.session_state["exp_TddS"] = df["TdS"].values
-                        st.session_state["err_TddS"] = df["err_TdS"].values if "err_TdS" in df.columns else np.nan
+                        st.session_state["exp_TddS"] = df["TdS"].values * energy_mult
+                        st.session_state["err_TddS"] = (df["err_TdS"].values * energy_mult) if "err_TdS" in df.columns else np.nan
                         st.session_state["exp_data_loaded"] = True
                         st.success("TdS experimental data loaded!")
         else: # Ternary
@@ -456,7 +463,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     if "conc2" in df.columns and "conc3" in df.columns and "dG" in df.columns:
                         st.session_state["exp_conc2"] = df["conc2"].values
                         st.session_state["exp_conc3"] = df["conc3"].values
-                        st.session_state["exp_val_G"] = df["dG"].values
+                        st.session_state["exp_val_G"] = df["dG"].values * energy_mult
                         st.session_state["exp_data_loaded"] = True
                         st.success("Ternary dG data loaded!")
                 if f_H:
@@ -464,7 +471,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     if "conc2" in df.columns and "conc3" in df.columns and "dH" in df.columns:
                         st.session_state["exp_conc2"] = df["conc2"].values
                         st.session_state["exp_conc3"] = df["conc3"].values
-                        st.session_state["exp_val_H"] = df["dH"].values
+                        st.session_state["exp_val_H"] = df["dH"].values * energy_mult
                         st.session_state["exp_data_loaded"] = True
                         st.success("Ternary dH data loaded!")
                 if f_S:
@@ -472,7 +479,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     if "conc2" in df.columns and "conc3" in df.columns and "TdS" in df.columns:
                         st.session_state["exp_conc2"] = df["conc2"].values
                         st.session_state["exp_conc3"] = df["conc3"].values
-                        st.session_state["exp_val_S"] = df["TdS"].values
+                        st.session_state["exp_val_S"] = df["TdS"].values * energy_mult
                         st.session_state["exp_data_loaded"] = True
                         st.success("Ternary TdS data loaded!")
             else:
@@ -1171,6 +1178,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         exp_val = None
                         
                     if exp_val is not None:
+                        if "kcal" in y_attr:
+                            exp_val = exp_val / 4.184
                         # Convert exp concentrations to volume fractions
                         exp_x_phi = convert_exp_conc(st.session_state["exp_conc2"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
                         exp_y_phi = convert_exp_conc(st.session_state["exp_conc3"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3"])

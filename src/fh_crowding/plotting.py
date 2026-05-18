@@ -4,6 +4,40 @@ from .binary import BinaryCrowdingModel
 from .ternary import TernaryCrowdingModel
 
 
+def _is_valid_data(x, y):
+    if x is None or y is None:
+        return False
+    x_arr = np.atleast_1d(x)
+    y_arr = np.atleast_1d(y)
+    
+    if len(x_arr) == 1:
+        val = x_arr[0]
+        if val is None or (isinstance(val, (int, float, np.number)) and np.isnan(val)):
+            return False
+    if len(y_arr) == 1:
+        val = y_arr[0]
+        if val is None or (isinstance(val, (int, float, np.number)) and np.isnan(val)):
+            return False
+            
+    return len(x_arr) == len(y_arr) and len(x_arr) > 0
+
+
+def _clean_yerr(yerr, y_len):
+    if yerr is None:
+        return None
+    yerr_arr = np.atleast_1d(yerr)
+    if len(yerr_arr) == 1:
+        val = yerr_arr[0]
+        if val is None or (isinstance(val, (int, float, np.number)) and np.isnan(val)):
+            return None
+        return val
+    if len(yerr_arr) != y_len:
+        return None
+    if np.all([v is None or (isinstance(v, (int, float, np.number)) and np.isnan(v)) for v in yerr_arr]):
+        return None
+    return yerr_arr
+
+
 class BinaryPlotter:
     def __init__(self, model: BinaryCrowdingModel):
         self.model = model
@@ -66,7 +100,8 @@ class BinaryPlotter:
         axes[1,0].plot(conc, ddA_nu)
         axes[1,0].plot(conc, ddA_chi)
         axes[1,0].plot(conc, ddA_eps)
-        axes[1,0].errorbar(exp_conc, exp_ddG, yerr=err_ddG, marker='o', ls='',capsize=10, label='_nolegend_')
+        if _is_valid_data(exp_conc, exp_ddG):
+            axes[1,0].errorbar(exp_conc, exp_ddG, yerr=_clean_yerr(err_ddG, len(exp_ddG)), marker='o', ls='', capsize=10, label='_nolegend_')
         axes[1,0].set_xlabel(str_conc)
         axes[1,0].set_ylabel(r'$\Delta\Delta G_i^{0}$ '+units)
         axes[1,0].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
@@ -74,7 +109,8 @@ class BinaryPlotter:
         axes[1,1].plot(conc, ddE)
         axes[1,1].plot(conc, ddE_chi)
         axes[1,1].plot(conc, ddE_eps)
-        axes[1,1].errorbar(exp_concT, exp_ddH, yerr=err_ddH, marker='o', ls='',capsize=10, label='_nolegend_')
+        if _is_valid_data(exp_concT, exp_ddH):
+            axes[1,1].errorbar(exp_concT, exp_ddH, yerr=_clean_yerr(err_ddH, len(exp_ddH)), marker='o', ls='', capsize=10, label='_nolegend_')
         axes[1,1].set_xlabel(str_conc)
         axes[1,1].set_ylabel(r'$\Delta\Delta H_i^{0}$ '+units)
         axes[1,1].legend(['tot',r'$\chi$',r'$\varepsilon$'])
@@ -83,7 +119,8 @@ class BinaryPlotter:
         axes[1,2].plot(conc, TddS_nu)
         axes[1,2].plot(conc, TddS_chi)
         axes[1,2].plot(conc, TddS_eps)
-        axes[1,2].errorbar(exp_concT, exp_TddS, yerr=err_TddS, marker='o', ls='',capsize=10, label='_nolegend_')
+        if _is_valid_data(exp_concT, exp_TddS):
+            axes[1,2].errorbar(exp_concT, exp_TddS, yerr=_clean_yerr(err_TddS, len(exp_TddS)), marker='o', ls='', capsize=10, label='_nolegend_')
         axes[1,2].set_xlabel(str_conc)
         axes[1,2].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
         axes[1,2].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
@@ -102,10 +139,12 @@ class BinaryPlotter:
         axes[2,1].plot(np.zeros(TddS_nu.shape), TddS_nu)
         axes[2,1].plot(ddE_chi, TddS_chi)
         axes[2,1].plot(ddE_eps, TddS_eps)
-        axes[2,1].plot(exp_ddH, exp_TddS,'o', label='_nolegend_')   
+        if _is_valid_data(exp_ddH, exp_TddS):
+            axes[2,1].plot(exp_ddH, exp_TddS, 'o', label='_nolegend_')   
         axes[2,1].set_xlabel(r'$\Delta\Delta H_i^{0}$ '+units)
         axes[2,1].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
         axes[2,1].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
+
 
         if max(abs(ddE_chi)) != 0:
             axes[2,2].set_xlim([-max(abs(ddE_chi)),max(abs(ddE_chi))])

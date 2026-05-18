@@ -83,7 +83,8 @@ class BinaryCrowdingModel(Cosolute):
         elif concentration_type == 'molar':
             exp_conc = exp_conc * self.nu * self.Vs
         elif concentration_type=='molal':
-            exp_conc = exp_conc * (18 * self.phiS * self.nu) * 1000
+            K = exp_conc * 18 * self.nu / 1000.0
+            exp_conc = K / (1 + K)
         else:
             raise Exception("Concetration type can be either molar, molal, or volume fraction")
         model_phiC, model_phiS = self.phiC, self.phiS # save model arrays
@@ -93,7 +94,7 @@ class BinaryCrowdingModel(Cosolute):
         self.phiCsurf = np.zeros(self.phiC.shape)
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
         self.flag=True
-        self.res = minimize(self.msd_fit_eps, self.eps, (exp_ddG), options={'disp':disp})
+        self.res = minimize(self.msd_fit_eps, self.eps, (exp_ddG,), options={'disp':disp})
         # return to model arrays
         self.phiC, self.phiS= model_phiC, model_phiS
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
@@ -124,7 +125,8 @@ class BinaryCrowdingModel(Cosolute):
         elif concentration_type == 'molar':
             exp_conc = exp_conc * self.nu * self.Vs
         elif concentration_type=='molal':
-            exp_conc = exp_conc * (18 * self.phiS * self.nu) * 1000
+            K = exp_conc * 18 * self.nu / 1000.0
+            exp_conc = K / (1 + K)
         else:
             raise Exception("Concetration type can be either molar or volume fraction")
         model_phiC, model_phiS = self.phiC, self.phiS # save model arrays
@@ -178,7 +180,8 @@ class BinaryCrowdingModel(Cosolute):
         elif concentration_type == 'molar':
             exp_conc = exp_conc * self.nu * self.Vs
         elif concentration_type=='molal':
-            exp_conc = exp_conc * (18 * self.phiS * self.nu) * 1000
+            K = exp_conc * 18 * self.nu / 1000.0
+            exp_conc = K / (1 + K)
         else:
             raise Exception("Concetration type can be either molar, molal, or volume fraction")
         model_phiC, model_phiS = self.phiC, self.phiS # save model arrays
@@ -189,7 +192,7 @@ class BinaryCrowdingModel(Cosolute):
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
         self.flag=True
         self.a=np.zeros(self.phiC.shape)+self.nu**(1/3)
-        self.res = minimize(self.msd_fit_a, self.a, (exp_ddG), options={'disp':disp})
+        self.res = minimize(self.msd_fit_a, self.a, (exp_ddG,), options={'disp':disp})
         self.a_vec=self.a
         self.phiC_a=self.phiC
         plt.figure()
@@ -245,7 +248,10 @@ class BinaryCrowdingModel(Cosolute):
         guess: Optional[float] = None
         for i in range(n):
             if not isinstance(a, float):
-                self.a = a[i]
+                if hasattr(a, '__len__') and np.ndim(a) > 0:
+                    self.a = a[i] if i < len(a) else a[-1]
+                else:
+                    self.a = float(a)
             if guess is None:
                 guess = float(self.phiC[i])
             try:

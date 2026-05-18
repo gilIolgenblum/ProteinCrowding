@@ -471,11 +471,14 @@ class TernaryCrowdingModel(CosoluteMixture):
             exp_ddG: Matrix of folding free energy in experiment in kJ/mol
             concentration_type: type of concetration. str - 'phi' or 'molal'
         '''
+        exp_conc2 = np.atleast_2d(exp_conc2)
+        exp_conc3 = np.atleast_2d(exp_conc3)
         if concentration_type == 'phi':
             pass
         elif concentration_type=='molal':
-            exp_conc2 = exp_conc2 * (18 * self.nu2) * 1E-3 / (1+exp_conc2 * (18 * self.nu2) * 1E-3+exp_conc3 * (18 * self.nu3) * 1E-3)
-            exp_conc3 = exp_conc3 * (18 * self.nu3) * 1E-3 / (1+exp_conc2 * (18 * self.nu2) * 1E-3+exp_conc3 * (18 * self.nu3) * 1E-3)
+            denom = 1 + exp_conc2 * (18 * self.nu2) * 1E-3 + exp_conc3 * (18 * self.nu3) * 1E-3
+            exp_conc2 = exp_conc2 * (18 * self.nu2) * 1E-3 / denom
+            exp_conc3 = exp_conc3 * (18 * self.nu3) * 1E-3 / denom
         else:
             raise Exception("Concetration type can be either molal or volume fraction")
         model_phi1, model_phi2, model_phi3 = self.phi1, self.phi2, self.phi3 # save model arrays
@@ -541,11 +544,14 @@ class TernaryCrowdingModel(CosoluteMixture):
             exp_TddS: Folding entropy in experiment in kJ/mol 
             concentration_type: type of concetration. str - 'phi' or 'molal'
         '''
+        exp_conc2 = np.atleast_2d(exp_conc2)
+        exp_conc3 = np.atleast_2d(exp_conc3)
         if concentration_type == 'phi':
             pass
         elif concentration_type=='molal':
-            exp_conc2 = exp_conc2 * (18 * self.nu2) * 1E-3 / (1+exp_conc2 * (18 * self.nu2) * 1E-3+exp_conc3 * (18 * self.nu3) * 1E-3)
-            exp_conc3 = exp_conc3 * (18 * self.nu3) * 1E-3 / (1+exp_conc2 * (18 * self.nu2) * 1E-3+exp_conc3 * (18 * self.nu3) * 1E-3)
+            denom = 1 + exp_conc2 * (18 * self.nu2) * 1E-3 + exp_conc3 * (18 * self.nu3) * 1E-3
+            exp_conc2 = exp_conc2 * (18 * self.nu2) * 1E-3 / denom
+            exp_conc3 = exp_conc3 * (18 * self.nu3) * 1E-3 / denom
         else:
             raise Exception("Concetration type can be either molal or volume fraction")
         model_phi1, model_phi2, model_phi3 = self.phi1, self.phi2, self.phi3 # save model arrays
