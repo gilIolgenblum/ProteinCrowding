@@ -1,0 +1,54 @@
+# FH Crowding Research Tool
+
+A thermodynamic mean-field model for protein folding in binary and ternary crowding mixtures.
+
+## Installation
+
+You can install this package in editable mode using `pip`:
+
+```bash
+pip install -e .
+```
+
+To install with development dependencies (e.g., Jupyter for running notebooks):
+```bash
+pip install -e .[dev]
+```
+
+To install with app dependencies (e.g., Streamlit for the local web app):
+```bash
+pip install -e .[app]
+```
+
+## Minimal Working Example
+
+```python
+from fh_crowding import Protein, Cosolute, BinaryCrowdingModel
+
+# Define protein and cosolute parameters
+protein = Protein(SASA=419.0)
+urea = Cosolute(nu=1.0, chi=0.1, chiTS=-0.05)
+
+# Initialize the model
+model = BinaryCrowdingModel(
+    protein=protein,
+    cosolute=urea,
+    eps=0.0,
+    epsTS=0.0,
+    T=298.15
+)
+
+# Solve equilibrium
+model.solve_equil()
+
+# Export results to DataFrame
+results = model.to_pandas()
+print(results.head())
+```
+
+## Assumptions
+
+This tool implements a mean-field model of Flory-Huggins type, accounting for excluded volume (nu), non-ideal mixing (chi, chiTS), and soft interaction (eps, epsTS) effects around a protein domain.
+
+## License
+MIT License
