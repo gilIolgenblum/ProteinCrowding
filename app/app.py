@@ -44,6 +44,8 @@ COSOLUTE_PAIR_NAMES = list(COSOLUTE_PAIR_DB.keys())
 # ---------------------------------------------------------------------------
 def _sync_cosolute(select_key: str, nu_key: str, chi_key: str, chiTS_key: str) -> None:
     """Fill nu / chi / chiTS from a single-cosolute preset."""
+    if select_key not in st.session_state:
+        return
     params = COSOLUTE_DB[st.session_state[select_key]]
     st.session_state[nu_key]    = params["nu"]
     st.session_state[chi_key]   = params["chi"]
@@ -52,6 +54,8 @@ def _sync_cosolute(select_key: str, nu_key: str, chi_key: str, chiTS_key: str) -
 
 def _sync_cosolute_pair() -> None:
     """Fill all ternary parameters from a cosolute-pair preset."""
+    if "tern_pair_select" not in st.session_state:
+        return
     pair = COSOLUTE_PAIR_DB[st.session_state["tern_pair_select"]]
     c2 = COSOLUTE_DB[pair["c2"]]
     c3 = COSOLUTE_DB[pair["c3"]]
@@ -65,6 +69,196 @@ def _sync_cosolute_pair() -> None:
     st.session_state["chiTS23"] = pair["chiTS23"]
     st.session_state["tern_cosolute2_select"] = pair["c2"]
     st.session_state["tern_cosolute3_select"] = pair["c3"]
+
+
+def load_binary_sample_callback() -> None:
+    """Load a binary sample dataset in a callback to avoid widget state mutation issues."""
+    sample_sel = st.session_state.get("bin_sample_select", "None")
+    if sample_sel == "None":
+        st.session_state["exp_data_loaded"] = False
+        st.session_state["exp_conc_G"] = None
+        st.session_state["exp_conc_T"] = None
+        st.session_state["exp_ddG"] = None
+        st.session_state["exp_ddH"] = None
+        st.session_state["exp_TddS"] = None
+        st.session_state["raw_exp_ddG"] = None
+        st.session_state["raw_err_ddG"] = None
+        st.session_state["raw_exp_ddH"] = None
+        st.session_state["raw_err_ddH"] = None
+        st.session_state["raw_exp_TddS"] = None
+        st.session_state["raw_err_TddS"] = None
+        st.session_state["sample_load_error"] = None
+        return
+        
+    sample_files = {
+        "Glycerol (met16)": "met16_glycerol_binary_format1.csv",
+        "TMAO (met16)": "met16_tmao_binary_format1.csv",
+        "Trehalose (met16)": "met16_trehalose_binary_format1.csv",
+        "Urea (met16)": "met16_urea_binary_format1.csv"
+    }
+    import os
+    file_path = os.path.join("app", "sample_data", sample_files[sample_sel])
+    try:
+        df = pd.read_csv(file_path)
+        df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
+        df = df.dropna(subset=["concentration"])
+        
+        st.session_state["exp_conc_G"] = df["concentration"].values
+        st.session_state["exp_conc_T"] = df["concentration"].values
+        st.session_state["exp_data_loaded"] = True
+        st.session_state["uploaded_conc_unit"] = "molal"
+        st.session_state["uploaded_energy_unit"] = "kJ/mol"
+        
+        # Automatically select and sync the cosolute preset in the sidebar
+        cosolute_preset_map = {
+            "Glycerol (met16)": ("Glycerol", 3.950, 0.233, -0.480),
+            "TMAO (met16)": ("TMAO", 3.980, -0.680, -5.708),
+            "Trehalose (met16)": ("Trehalose", 11.700, 0.433, -1.120),
+            "Urea (met16)": ("Urea", 2.479, 0.610, -3.650)
+        }
+        if sample_sel in cosolute_preset_map:
+            preset_name, nu_val, chi_val, chiTS_val = cosolute_preset_map[sample_sel]
+            st.session_state["bin_cosolute_select"] = preset_name
+            st.session_state["bin_nu"] = nu_val
+            st.session_state["bin_chi"] = chi_val
+            st.session_state["bin_chiTS"] = chiTS_val
+        
+        st.session_state["fit_success_msg"] = None
+        st.session_state["fit_warning_msg"] = None
+        st.session_state["sample_load_error"] = None
+        
+        if "dG" in df.columns:
+            df["dG"] = pd.to_numeric(df["dG"], errors='coerce')
+            st.session_state["raw_exp_ddG"] = df["dG"].values
+            st.session_state["exp_ddG"] = df["dG"].values
+        if "err_dG" in df.columns:
+            df["err_dG"] = pd.to_numeric(df["err_dG"], errors='coerce')
+            st.session_state["raw_err_ddG"] = df["err_dG"].values
+            st.session_state["err_ddG"] = df["err_dG"].values
+        else:
+            st.session_state["raw_err_ddG"] = np.nan
+            st.session_state["err_ddG"] = np.nan
+            
+        if "dH" in df.columns:
+            df["dH"] = pd.to_numeric(df["dH"], errors='coerce')
+            st.session_state["raw_exp_ddH"] = df["dH"].values
+            st.session_state["exp_ddH"] = df["dH"].values
+        if "err_dH" in df.columns:
+            df["err_dH"] = pd.to_numeric(df["err_dH"], errors='coerce')
+            st.session_state["raw_err_ddH"] = df["err_dH"].values
+            st.session_state["err_ddH"] = df["err_dH"].values
+        else:
+            st.session_state["raw_err_ddH"] = np.nan
+            st.session_state["err_ddH"] = np.nan
+            
+        if "TdS" in df.columns:
+            df["TdS"] = pd.to_numeric(df["TdS"], errors='coerce')
+            st.session_state["raw_exp_TddS"] = df["TdS"].values
+            st.session_state["exp_TddS"] = df["TdS"].values
+        if "err_TdS" in df.columns:
+            df["err_TdS"] = pd.to_numeric(df["err_TdS"], errors='coerce')
+            st.session_state["raw_err_TddS"] = df["err_TdS"].values
+            st.session_state["err_TddS"] = df["err_TdS"].values
+        else:
+            st.session_state["raw_err_TddS"] = np.nan
+            st.session_state["err_TddS"] = np.nan
+            
+    except Exception as ex:
+        st.session_state["sample_load_error"] = f"Error loading sample file: {ex}"
+
+
+def load_ternary_sample_callback() -> None:
+    """Load a ternary sample dataset in a callback to avoid widget state mutation issues."""
+    sample_sel = st.session_state.get("tern_sample_select", "None")
+    if sample_sel == "None":
+        st.session_state["exp_data_loaded"] = False
+        st.session_state["exp_conc2"] = None
+        st.session_state["exp_conc3"] = None
+        st.session_state["exp_val_G"] = None
+        st.session_state["exp_val_H"] = None
+        st.session_state["exp_val_S"] = None
+        st.session_state["raw_exp_val_G"] = None
+        st.session_state["raw_exp_val_H"] = None
+        st.session_state["raw_exp_val_S"] = None
+        st.session_state["sample_load_error"] = None
+        return
+        
+    sample_files = {
+        "Glycerol + Trehalose (met16)": {
+            "dG": "met16_gly_tre_ternary_format1_dG.csv",
+            "dH": "met16_gly_tre_ternary_format1_dH.csv",
+            "TdS": "met16_gly_tre_ternary_format1_TdS.csv"
+        },
+        "Urea + TMAO (aq16)": {
+            "dG": "aq16_urea_tmao_ternary_format1_dG.csv",
+            "dH": "aq16_urea_tmao_ternary_format1_dH.csv",
+            "TdS": "aq16_urea_tmao_ternary_format1_TdS.csv"
+        }
+    }
+    import os
+    files = sample_files[sample_sel]
+    try:
+        df_G = pd.read_csv(os.path.join("app", "sample_data", files["dG"]))
+        df_G["conc2"] = pd.to_numeric(df_G["conc2"], errors='coerce')
+        df_G["conc3"] = pd.to_numeric(df_G["conc3"], errors='coerce')
+        df_G["dG"] = pd.to_numeric(df_G["dG"], errors='coerce')
+        df_G = df_G.dropna(subset=["conc2", "conc3", "dG"])
+        
+        st.session_state["exp_conc2"] = df_G["conc2"].values
+        st.session_state["exp_conc3"] = df_G["conc3"].values
+        st.session_state["raw_exp_val_G"] = df_G["dG"].values
+        st.session_state["exp_val_G"] = df_G["dG"].values
+        st.session_state["exp_data_loaded"] = True
+        st.session_state["uploaded_conc_unit"] = "molal"
+        st.session_state["uploaded_energy_unit"] = "kJ/mol"
+        
+        # Automatically select and sync the cosolute pair preset in the sidebar
+        pair_preset_map = {
+            "Glycerol + Trehalose (met16)": ("Glycerol + Trehalose", "Glycerol", "Trehalose", 3.950, 0.233, -0.480, 11.700, 0.433, -1.120, 4.500, 10.000),
+            "Urea + TMAO (aq16)": ("Urea + TMAO", "Urea", "TMAO", 2.479, 0.610, -3.650, 3.980, -0.680, -5.708, 0.963, -38.810)
+        }
+        if sample_sel in pair_preset_map:
+            pair_name, c2_name, c3_name, nu2_val, chi12_val, chiTS12_val, nu3_val, chi13_val, chiTS13_val, chi23_val, chiTS23_val = pair_preset_map[sample_sel]
+            st.session_state["tern_pair_select"] = pair_name
+            st.session_state["tern_cosolute2_select"] = c2_name
+            st.session_state["tern_cosolute3_select"] = c3_name
+            st.session_state["nu2"] = nu2_val
+            st.session_state["chi12"] = chi12_val
+            st.session_state["chiTS12"] = chiTS12_val
+            st.session_state["nu3"] = nu3_val
+            st.session_state["chi13"] = chi13_val
+            st.session_state["chiTS13"] = chiTS13_val
+            st.session_state["chi23"] = chi23_val
+            st.session_state["chiTS23"] = chiTS23_val
+            
+        st.session_state["fit_success_msg"] = None
+        st.session_state["fit_warning_msg"] = None
+        st.session_state["sample_load_error"] = None
+        
+        try:
+            df_H = pd.read_csv(os.path.join("app", "sample_data", files["dH"]))
+            df_H["conc2"] = pd.to_numeric(df_H["conc2"], errors='coerce')
+            df_H["conc3"] = pd.to_numeric(df_H["conc3"], errors='coerce')
+            df_H["dH"] = pd.to_numeric(df_H["dH"], errors='coerce')
+            df_H = df_H.dropna(subset=["conc2", "conc3", "dH"])
+            st.session_state["raw_exp_val_H"] = df_H["dH"].values
+            st.session_state["exp_val_H"] = df_H["dH"].values
+        except Exception:
+            pass
+            
+        try:
+            df_S = pd.read_csv(os.path.join("app", "sample_data", files["TdS"]))
+            df_S["conc2"] = pd.to_numeric(df_S["conc2"], errors='coerce')
+            df_S["conc3"] = pd.to_numeric(df_S["conc3"], errors='coerce')
+            df_S["TdS"] = pd.to_numeric(df_S["TdS"], errors='coerce')
+            df_S = df_S.dropna(subset=["conc2", "conc3", "TdS"])
+            st.session_state["raw_exp_val_S"] = df_S["TdS"].values
+            st.session_state["exp_val_S"] = df_S["TdS"].values
+        except Exception:
+            pass
+            
+    except Exception as ex:
+        st.session_state["sample_load_error"] = f"Error loading sample files: {ex}"
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +328,23 @@ def convert_exp_conc(exp_conc, from_type, to_type, model, is_ternary=False, coso
 
 
 # ---------------------------------------------------------------------------
+# Helper function to read CSV with separator auto-detection (comma or tab)
+# ---------------------------------------------------------------------------
+def read_uploaded_csv(file_obj):
+    pos = file_obj.tell()
+    try:
+        first_line = file_obj.readline()
+        if isinstance(first_line, bytes):
+            first_line = first_line.decode('utf-8', errors='ignore')
+    except Exception:
+        first_line = ""
+    finally:
+        file_obj.seek(pos)
+    sep = '\t' if '\t' in first_line else ','
+    return pd.read_csv(file_obj, sep=sep)
+
+
+# ---------------------------------------------------------------------------
 # Initialise session state defaults (only on first load)
 # ---------------------------------------------------------------------------
 _defaults = {
@@ -150,15 +361,44 @@ _defaults = {
     "exp_conc_G": None, "exp_ddG": None, "err_ddG": None,
     "exp_conc_T": None, "exp_ddH": None, "exp_TddS": None, "err_ddH": None, "err_TddS": None,
     "exp_conc2": None, "exp_conc3": None, "exp_val_G": None, "exp_val_H": None, "exp_val_S": None,
+    "raw_exp_ddG": None, "raw_err_ddG": None,
+    "raw_exp_ddH": None, "raw_err_ddH": None,
+    "raw_exp_TddS": None, "raw_err_TddS": None,
+    "raw_exp_val_G": None, "raw_exp_val_H": None, "raw_exp_val_S": None,
     "exp_data_loaded": False,
+    
+    # widget key defaults to prevent state mismatch
+    "bin_eps_input": 0.0, "bin_epsts_input": 0.0,
+    "tern_eps2_input": 0.0, "tern_eps3_input": 0.0,
+    "tern_epsts2_input": 0.0, "tern_epsts3_input": 0.0,
     
     # fitted parameters tracker (to persist fitted parameters to sidebar input values)
     "fitted_eps": None, "fitted_epsTS": None,
-    "fitted_eps2": None, "fitted_eps3": None, "fitted_epsTS2": None, "fitted_epsTS3": None
+    "fitted_eps2": None, "fitted_eps3": None, "fitted_epsTS2": None, "fitted_epsTS3": None,
+    "fit_updated": False,
+    "fit_success_msg": None,
+    "fit_warning_msg": None
 }
 for _k, _v in _defaults.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
+
+# Programmatically update input widget values after a successful fit
+# (Must be done before the widgets are instantiated in the current rerun)
+if st.session_state.get("fit_updated"):
+    if st.session_state.get("fitted_eps") is not None:
+        st.session_state["bin_eps_input"] = st.session_state["fitted_eps"]
+    if st.session_state.get("fitted_epsTS") is not None:
+        st.session_state["bin_epsts_input"] = st.session_state["fitted_epsTS"]
+    if st.session_state.get("fitted_eps2") is not None:
+        st.session_state["tern_eps2_input"] = st.session_state["fitted_eps2"]
+    if st.session_state.get("fitted_eps3") is not None:
+        st.session_state["tern_eps3_input"] = st.session_state["fitted_eps3"]
+    if st.session_state.get("fitted_epsTS2") is not None:
+        st.session_state["tern_epsts2_input"] = st.session_state["fitted_epsTS2"]
+    if st.session_state.get("fitted_epsTS3") is not None:
+        st.session_state["tern_epsts3_input"] = st.session_state["fitted_epsTS3"]
+    st.session_state["fit_updated"] = False
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +410,38 @@ st.sidebar.header("Model Configuration")
 model_type = st.sidebar.selectbox(
     "Model Type", ["Binary Crowding Model", "Ternary Crowding Model"]
 )
+
+
+# Clear fit messages on sample selection change or model type change
+if "last_bin_sample" not in st.session_state:
+    st.session_state["last_bin_sample"] = "None"
+if "last_tern_sample" not in st.session_state:
+    st.session_state["last_tern_sample"] = "None"
+if "last_model_type" not in st.session_state:
+    st.session_state["last_model_type"] = model_type
+
+current_bin_sample = st.session_state.get("bin_sample_select", "None")
+if current_bin_sample != st.session_state["last_bin_sample"]:
+    st.session_state["last_bin_sample"] = current_bin_sample
+    st.session_state["fit_success_msg"] = None
+    st.session_state["fit_warning_msg"] = None
+    st.session_state["fitted_eps"] = None
+    st.session_state["fitted_epsTS"] = None
+
+current_tern_sample = st.session_state.get("tern_sample_select", "None")
+if current_tern_sample != st.session_state["last_tern_sample"]:
+    st.session_state["last_tern_sample"] = current_tern_sample
+    st.session_state["fit_success_msg"] = None
+    st.session_state["fit_warning_msg"] = None
+    st.session_state["fitted_eps2"] = None
+    st.session_state["fitted_eps3"] = None
+    st.session_state["fitted_epsTS2"] = None
+    st.session_state["fitted_epsTS3"] = None
+
+if model_type != st.session_state["last_model_type"]:
+    st.session_state["last_model_type"] = model_type
+    st.session_state["fit_success_msg"] = None
+    st.session_state["fit_warning_msg"] = None
 
 st.sidebar.subheader("Protein")
 SASA = st.sidebar.number_input("SASA", value=419.0)
@@ -207,12 +479,8 @@ if model_type == "Binary Crowding Model":
 
     st.sidebar.subheader("Soft Interaction Parameters")
     
-    # We display fitted parameter if available, otherwise manual input
-    eps_val_default = st.session_state["fitted_eps"] if st.session_state["fitted_eps"] is not None else 0.0
-    eps = st.sidebar.number_input("eps", value=eps_val_default, step=0.01, format="%.4f", key="bin_eps_input")
-    
-    epsTS_val_default = st.session_state["fitted_epsTS"] if st.session_state["fitted_epsTS"] is not None else 0.0
-    epsTS = st.sidebar.number_input("epsTS", value=epsTS_val_default, step=0.01, format="%.4f", key="bin_epsts_input")
+    eps = st.sidebar.number_input("eps", step=0.01, format="%.4f", key="bin_eps_input")
+    epsTS = st.sidebar.number_input("epsTS", step=0.01, format="%.4f", key="bin_epsts_input")
 
     st.sidebar.subheader("Concentration Grid")
     dphiC = st.sidebar.number_input(
@@ -278,11 +546,8 @@ else:
     chi12   = st.sidebar.number_input("chi12",   key="chi12",   step=0.01, format="%.4f")
     chiTS12 = st.sidebar.number_input("chiTS12", key="chiTS12", step=0.01, format="%.4f")
     
-    eps2_val_default = st.session_state["fitted_eps2"] if st.session_state["fitted_eps2"] is not None else 0.0
-    eps2    = st.sidebar.number_input("eps2",    value=eps2_val_default, step=0.01, format="%.4f", key="tern_eps2_input")
-    
-    epsTS2_val_default = st.session_state["fitted_epsTS2"] if st.session_state["fitted_epsTS2"] is not None else 0.0
-    epsTS2  = st.sidebar.number_input("epsTS2",  value=epsTS2_val_default, step=0.01, format="%.4f", key="tern_epsts2_input")
+    eps2    = st.sidebar.number_input("eps2",    step=0.01, format="%.4f", key="tern_eps2_input")
+    epsTS2  = st.sidebar.number_input("epsTS2",  step=0.01, format="%.4f", key="tern_epsts2_input")
 
     # --- Cosolute 3 ---
     st.sidebar.subheader("Cosolute 3")
@@ -303,11 +568,8 @@ else:
     chi13   = st.sidebar.number_input("chi13",   key="chi13",   step=0.01, format="%.4f")
     chiTS13 = st.sidebar.number_input("chiTS13", key="chiTS13", step=0.01, format="%.4f")
     
-    eps3_val_default = st.session_state["fitted_eps3"] if st.session_state["fitted_eps3"] is not None else 0.0
-    eps3    = st.sidebar.number_input("eps3",    value=eps3_val_default, step=0.01, format="%.4f", key="tern_eps3_input")
-    
-    epsTS3_val_default = st.session_state["fitted_epsTS3"] if st.session_state["fitted_epsTS3"] is not None else 0.0
-    epsTS3  = st.sidebar.number_input("epsTS3",  value=epsTS3_val_default, step=0.01, format="%.4f", key="tern_epsts3_input")
+    eps3    = st.sidebar.number_input("eps3",    step=0.01, format="%.4f", key="tern_eps3_input")
+    epsTS3  = st.sidebar.number_input("epsTS3",  step=0.01, format="%.4f", key="tern_epsts3_input")
 
     # --- Cosolute–cosolute interactions ---
     st.sidebar.subheader("Cosolute–Cosolute Interactions")
@@ -393,7 +655,51 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
         )
         energy_mult = 4.184 if uploaded_energy_unit == "kcal/mol" else 1.0
         
+        # Dynamically scale active experimental energy arrays using energy_mult and the raw inputs
+        for key in ["exp_ddG", "err_ddG", "exp_ddH", "err_ddH", "exp_TddS", "err_TddS", "exp_val_G", "exp_val_H", "exp_val_S"]:
+            raw_key = "raw_" + key
+            if raw_key in st.session_state and st.session_state[raw_key] is not None:
+                st.session_state[key] = np.array(st.session_state[raw_key]) * energy_mult
+
     with col_u2:
+        # Option A: Load Sample Dataset
+        st.markdown("### 💡 Option A: Load Sample Dataset")
+        if model_type == "Binary Crowding Model":
+            sample_options = [
+                "None",
+                "Glycerol (met16)",
+                "TMAO (met16)",
+                "Trehalose (met16)",
+                "Urea (met16)"
+            ]
+            sample_sel = st.selectbox(
+                "Select a sample binary dataset",
+                sample_options,
+                key="bin_sample_select",
+                on_change=load_binary_sample_callback
+            )
+            if st.session_state.get("sample_load_error"):
+                st.error(st.session_state["sample_load_error"])
+            elif sample_sel != "None":
+                st.success(f"Sample binary dataset '{sample_sel}' loaded successfully! (in kJ/mol)")
+        else:
+            sample_options = [
+                "None",
+                "Glycerol + Trehalose (met16)",
+                "Urea + TMAO (aq16)"
+            ]
+            sample_sel = st.selectbox(
+                "Select a sample ternary dataset",
+                sample_options,
+                key="tern_sample_select",
+                on_change=load_ternary_sample_callback
+            )
+            if st.session_state.get("sample_load_error"):
+                st.error(st.session_state["sample_load_error"])
+            elif sample_sel != "None":
+                st.success(f"Sample ternary dataset '{sample_sel}' loaded successfully! (in kJ/mol)")
+
+        st.markdown("### 📂 Option B: Upload Your Own CSV File(s)")
         if model_type == "Binary Crowding Model":
             upload_mode = st.radio(
                 "Data Upload Format",
@@ -405,35 +711,62 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             if upload_mode == "Single CSV File (concentration, dG, dH, TdS)":
                 f = st.file_uploader("Upload Single CSV File", type=["csv"], key="bin_single_uploader")
                 if f:
-                    df = pd.read_csv(f)
-                    st.dataframe(df.head(), use_container_width=True)
-                    if "concentration" in df.columns:
-                        st.session_state["exp_conc_G"] = df["concentration"].values
-                        st.session_state["exp_conc_T"] = df["concentration"].values
-                        st.session_state["exp_data_loaded"] = True
-                        
-                        if "dG" in df.columns:
-                            st.session_state["exp_ddG"] = df["dG"].values * energy_mult
-                        if "err_dG" in df.columns:
-                            st.session_state["err_ddG"] = df["err_dG"].values * energy_mult
+                    try:
+                        df = read_uploaded_csv(f)
+                        st.dataframe(df.head(), use_container_width=True)
+                        if "concentration" not in df.columns:
+                            st.error(f"Missing required column: 'concentration'\n\nExpected columns: 'concentration' and at least one of 'dG', 'dH', 'TdS'.\n\nDetected columns: {list(df.columns)}")
                         else:
-                            st.session_state["err_ddG"] = np.nan
-                            
-                        if "dH" in df.columns:
-                            st.session_state["exp_ddH"] = df["dH"].values * energy_mult
-                        if "err_dH" in df.columns:
-                            st.session_state["err_ddH"] = df["err_dH"].values * energy_mult
-                        else:
-                            st.session_state["err_ddH"] = np.nan
-                            
-                        if "TdS" in df.columns:
-                            st.session_state["exp_TddS"] = df["TdS"].values * energy_mult
-                        if "err_TdS" in df.columns:
-                            st.session_state["err_TddS"] = df["err_TdS"].values * energy_mult
-                        else:
-                            st.session_state["err_TddS"] = np.nan
-                            
-                        st.success("Experimental dataset loaded successfully!")
+                            available_data = [c for c in ["dG", "dH", "TdS"] if c in df.columns]
+                            if not available_data:
+                                st.error(f"Could not find any data columns to fit ('dG', 'dH', or 'TdS').\n\nDetected columns: {list(df.columns)}")
+                            else:
+                                df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
+                                df = df.dropna(subset=["concentration"])
+                                
+                                st.session_state["exp_conc_G"] = df["concentration"].values
+                                st.session_state["exp_conc_T"] = df["concentration"].values
+                                st.session_state["exp_data_loaded"] = True
+                                
+                                if "dG" in df.columns:
+                                    df["dG"] = pd.to_numeric(df["dG"], errors='coerce')
+                                    st.session_state["raw_exp_ddG"] = df["dG"].values
+                                    st.session_state["exp_ddG"] = df["dG"].values * energy_mult
+                                if "err_dG" in df.columns:
+                                    df["err_dG"] = pd.to_numeric(df["err_dG"], errors='coerce')
+                                    st.session_state["raw_err_ddG"] = df["err_dG"].values
+                                    st.session_state["err_ddG"] = df["err_dG"].values * energy_mult
+                                else:
+                                    st.session_state["raw_err_ddG"] = np.nan
+                                    st.session_state["err_ddG"] = np.nan
+                                    
+                                if "dH" in df.columns:
+                                    df["dH"] = pd.to_numeric(df["dH"], errors='coerce')
+                                    st.session_state["raw_exp_ddH"] = df["dH"].values
+                                    st.session_state["exp_ddH"] = df["dH"].values * energy_mult
+                                if "err_dH" in df.columns:
+                                    df["err_dH"] = pd.to_numeric(df["err_dH"], errors='coerce')
+                                    st.session_state["raw_err_ddH"] = df["err_dH"].values
+                                    st.session_state["err_ddH"] = df["err_dH"].values * energy_mult
+                                else:
+                                    st.session_state["raw_err_ddH"] = np.nan
+                                    st.session_state["err_ddH"] = np.nan
+                                    
+                                if "TdS" in df.columns:
+                                    df["TdS"] = pd.to_numeric(df["TdS"], errors='coerce')
+                                    st.session_state["raw_exp_TddS"] = df["TdS"].values
+                                    st.session_state["exp_TddS"] = df["TdS"].values * energy_mult
+                                if "err_TdS" in df.columns:
+                                    df["err_TdS"] = pd.to_numeric(df["err_TdS"], errors='coerce')
+                                    st.session_state["raw_err_TddS"] = df["err_TdS"].values
+                                    st.session_state["err_TddS"] = df["err_TdS"].values * energy_mult
+                                else:
+                                    st.session_state["raw_err_TddS"] = np.nan
+                                    st.session_state["err_TddS"] = np.nan
+                                    
+                                st.success("Experimental dataset loaded successfully!")
+                    except Exception as ex:
+                        st.error(f"Error reading CSV file: {ex}")
             else:
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
@@ -444,31 +777,61 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     f_S = st.file_uploader("Upload TdS CSV (concentration, TdS)", type=["csv"], key="bin_s_uploader")
                 
                 if f_G:
-                    df = pd.read_csv(f_G)
-                    if "concentration" in df.columns and "dG" in df.columns:
-                        st.session_state["exp_conc_G"] = df["concentration"].values
-                        st.session_state["exp_ddG"] = df["dG"].values * energy_mult
-                        st.session_state["err_ddG"] = (df["err_dG"].values * energy_mult) if "err_dG" in df.columns else np.nan
-                        st.session_state["exp_data_loaded"] = True
-                        st.success("dG experimental data loaded!")
+                    try:
+                        df = read_uploaded_csv(f_G)
+                        if "concentration" not in df.columns or "dG" not in df.columns:
+                            st.error(f"Missing required columns for dG. Expected: 'concentration', 'dG'.\n\nDetected columns: {list(df.columns)}")
+                        else:
+                            df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
+                            df["dG"] = pd.to_numeric(df["dG"], errors='coerce')
+                            df = df.dropna(subset=["concentration", "dG"])
+                            st.session_state["exp_conc_G"] = df["concentration"].values
+                            st.session_state["raw_exp_ddG"] = df["dG"].values
+                            st.session_state["exp_ddG"] = df["dG"].values * energy_mult
+                            st.session_state["raw_err_ddG"] = df["err_dG"].values if "err_dG" in df.columns else np.nan
+                            st.session_state["err_ddG"] = (df["err_dG"].values * energy_mult) if "err_dG" in df.columns else np.nan
+                            st.session_state["exp_data_loaded"] = True
+                            st.success("dG experimental data loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading dG CSV file: {ex}")
                         
                 if f_H:
-                    df = pd.read_csv(f_H)
-                    if "concentration" in df.columns and "dH" in df.columns:
-                        st.session_state["exp_conc_T"] = df["concentration"].values
-                        st.session_state["exp_ddH"] = df["dH"].values * energy_mult
-                        st.session_state["err_ddH"] = (df["err_dH"].values * energy_mult) if "err_dH" in df.columns else np.nan
-                        st.session_state["exp_data_loaded"] = True
-                        st.success("dH experimental data loaded!")
+                    try:
+                        df = read_uploaded_csv(f_H)
+                        if "concentration" not in df.columns or "dH" not in df.columns:
+                            st.error(f"Missing required columns for dH. Expected: 'concentration', 'dH'.\n\nDetected columns: {list(df.columns)}")
+                        else:
+                            df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
+                            df["dH"] = pd.to_numeric(df["dH"], errors='coerce')
+                            df = df.dropna(subset=["concentration", "dH"])
+                            st.session_state["exp_conc_T"] = df["concentration"].values
+                            st.session_state["raw_exp_ddH"] = df["dH"].values
+                            st.session_state["exp_ddH"] = df["dH"].values * energy_mult
+                            st.session_state["raw_err_ddH"] = df["err_dH"].values if "err_dH" in df.columns else np.nan
+                            st.session_state["err_ddH"] = (df["err_dH"].values * energy_mult) if "err_dH" in df.columns else np.nan
+                            st.session_state["exp_data_loaded"] = True
+                            st.success("dH experimental data loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading dH CSV file: {ex}")
                         
                 if f_S:
-                    df = pd.read_csv(f_S)
-                    if "concentration" in df.columns and "TdS" in df.columns:
-                        st.session_state["exp_conc_T"] = df["concentration"].values
-                        st.session_state["exp_TddS"] = df["TdS"].values * energy_mult
-                        st.session_state["err_TddS"] = (df["err_TdS"].values * energy_mult) if "err_TdS" in df.columns else np.nan
-                        st.session_state["exp_data_loaded"] = True
-                        st.success("TdS experimental data loaded!")
+                    try:
+                        df = read_uploaded_csv(f_S)
+                        if "concentration" not in df.columns or "TdS" not in df.columns:
+                            st.error(f"Missing required columns for TdS. Expected: 'concentration', 'TdS'.\n\nDetected columns: {list(df.columns)}")
+                        else:
+                            df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
+                            df["TdS"] = pd.to_numeric(df["TdS"], errors='coerce')
+                            df = df.dropna(subset=["concentration", "TdS"])
+                            st.session_state["exp_conc_T"] = df["concentration"].values
+                            st.session_state["raw_exp_TddS"] = df["TdS"].values
+                            st.session_state["exp_TddS"] = df["TdS"].values * energy_mult
+                            st.session_state["raw_err_TddS"] = df["err_TdS"].values if "err_TdS" in df.columns else np.nan
+                            st.session_state["err_TddS"] = (df["err_TdS"].values * energy_mult) if "err_TdS" in df.columns else np.nan
+                            st.session_state["exp_data_loaded"] = True
+                            st.success("TdS experimental data loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading TdS CSV file: {ex}")
         else: # Ternary
             upload_mode = st.radio(
                 "Data Upload Format",
@@ -487,29 +850,59 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     f_S = st.file_uploader("Upload TdS CSV (conc2, conc3, TdS)", type=["csv"], key="tern_s_uploader")
                 
                 if f_G:
-                    df = pd.read_csv(f_G)
-                    if "conc2" in df.columns and "conc3" in df.columns and "dG" in df.columns:
-                        st.session_state["exp_conc2"] = df["conc2"].values
-                        st.session_state["exp_conc3"] = df["conc3"].values
-                        st.session_state["exp_val_G"] = df["dG"].values * energy_mult
-                        st.session_state["exp_data_loaded"] = True
-                        st.success("Ternary dG data loaded!")
+                    try:
+                        df = read_uploaded_csv(f_G)
+                        if "conc2" not in df.columns or "conc3" not in df.columns or "dG" not in df.columns:
+                            st.error(f"Missing required columns for ternary dG. Expected: 'conc2', 'conc3', 'dG'.\n\nDetected columns: {list(df.columns)}")
+                        else:
+                            df["conc2"] = pd.to_numeric(df["conc2"], errors='coerce')
+                            df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
+                            df["dG"] = pd.to_numeric(df["dG"], errors='coerce')
+                            df = df.dropna(subset=["conc2", "conc3", "dG"])
+                            st.session_state["exp_conc2"] = df["conc2"].values
+                            st.session_state["exp_conc3"] = df["conc3"].values
+                            st.session_state["raw_exp_val_G"] = df["dG"].values
+                            st.session_state["exp_val_G"] = df["dG"].values * energy_mult
+                            st.session_state["exp_data_loaded"] = True
+                            st.success("Ternary dG data loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading dG CSV file: {ex}")
                 if f_H:
-                    df = pd.read_csv(f_H)
-                    if "conc2" in df.columns and "conc3" in df.columns and "dH" in df.columns:
-                        st.session_state["exp_conc2"] = df["conc2"].values
-                        st.session_state["exp_conc3"] = df["conc3"].values
-                        st.session_state["exp_val_H"] = df["dH"].values * energy_mult
-                        st.session_state["exp_data_loaded"] = True
-                        st.success("Ternary dH data loaded!")
+                    try:
+                        df = read_uploaded_csv(f_H)
+                        if "conc2" not in df.columns or "conc3" not in df.columns or "dH" not in df.columns:
+                            st.error(f"Missing required columns for ternary dH. Expected: 'conc2', 'conc3', 'dH'.\n\nDetected columns: {list(df.columns)}")
+                        else:
+                            df["conc2"] = pd.to_numeric(df["conc2"], errors='coerce')
+                            df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
+                            df["dH"] = pd.to_numeric(df["dH"], errors='coerce')
+                            df = df.dropna(subset=["conc2", "conc3", "dH"])
+                            st.session_state["exp_conc2"] = df["conc2"].values
+                            st.session_state["exp_conc3"] = df["conc3"].values
+                            st.session_state["raw_exp_val_H"] = df["dH"].values
+                            st.session_state["exp_val_H"] = df["dH"].values * energy_mult
+                            st.session_state["exp_data_loaded"] = True
+                            st.success("Ternary dH data loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading dH CSV file: {ex}")
                 if f_S:
-                    df = pd.read_csv(f_S)
-                    if "conc2" in df.columns and "conc3" in df.columns and "TdS" in df.columns:
-                        st.session_state["exp_conc2"] = df["conc2"].values
-                        st.session_state["exp_conc3"] = df["conc3"].values
-                        st.session_state["exp_val_S"] = df["TdS"].values * energy_mult
-                        st.session_state["exp_data_loaded"] = True
-                        st.success("Ternary TdS data loaded!")
+                    try:
+                        df = read_uploaded_csv(f_S)
+                        if "conc2" not in df.columns or "conc3" not in df.columns or "TdS" not in df.columns:
+                            st.error(f"Missing required columns for ternary TdS. Expected: 'conc2', 'conc3', 'TdS'.\n\nDetected columns: {list(df.columns)}")
+                        else:
+                            df["conc2"] = pd.to_numeric(df["conc2"], errors='coerce')
+                            df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
+                            df["TdS"] = pd.to_numeric(df["TdS"], errors='coerce')
+                            df = df.dropna(subset=["conc2", "conc3", "TdS"])
+                            st.session_state["exp_conc2"] = df["conc2"].values
+                            st.session_state["exp_conc3"] = df["conc3"].values
+                            st.session_state["raw_exp_val_S"] = df["TdS"].values
+                            st.session_state["exp_val_S"] = df["TdS"].values * energy_mult
+                            st.session_state["exp_data_loaded"] = True
+                            st.success("Ternary TdS data loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading TdS CSV file: {ex}")
             else:
                 st.info("Matrix formats are typically fitted via columns. Please ensure CSV contains 'conc2', 'conc3' and data columns.")
 
@@ -576,16 +969,17 @@ with col_fit:
     else:
         st.markdown(f"**Loaded Experimental Data Unit:** `{uploaded_conc_unit}`")
         
-        # Fit concentration type dropdown (must match calculations)
-        fit_conc_type = st.selectbox(
-            "Fitting Model concentration type",
-            ["phi", "molar", "molal"] if model_type == "Binary Crowding Model" else ["phi", "molal"],
-            key="fitting_model_conc_type",
-            help="This matches concentration_type inside the fitting algorithms."
-        )
+        # Fit concentration type is determined by the uploaded CSV unit
+        fit_conc_type = uploaded_conc_unit
         
         st.markdown("---")
         
+        # Display persistent fit status messages if they exist
+        if st.session_state.get("fit_success_msg"):
+            st.success(st.session_state["fit_success_msg"])
+        if st.session_state.get("fit_warning_msg"):
+            st.warning(st.session_state["fit_warning_msg"])
+            
         # Binary fitting controls
         if model_type == "Binary Crowding Model":
             col_b1, col_b2 = st.columns(2)
@@ -598,10 +992,16 @@ with col_fit:
                     if st.session_state.get("exp_ddG") is not None and st.session_state.get("exp_conc_G") is not None:
                         fit_progress = st.progress(0, text="Fitting eps...")
                         try:
+                            # Filter NaNs
+                            conc_G = np.array(st.session_state["exp_conc_G"])
+                            ddG = np.array(st.session_state["exp_ddG"])
+                            valid_idx = np.isfinite(conc_G) & np.isfinite(ddG)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dG data points to fit.")
                             # Run fit
                             model.fit_eps(
-                                st.session_state["exp_conc_G"],
-                                st.session_state["exp_ddG"],
+                                conc_G[valid_idx],
+                                ddG[valid_idx],
                                 concentration_type=fit_conc_type
                             )
                             fit_progress.progress(0.5, text="Solving equilibrium with fitted eps...")
@@ -612,10 +1012,16 @@ with col_fit:
                             
                             # Save state
                             st.session_state["fitted_eps"] = model.eps
-                            st.session_state["bin_eps_input"] = model.eps
+                            st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
-                            st.success(f"Successfully fitted eps: {model.eps:.4f}")
+                            
+                            st.session_state["fit_success_msg"] = f"Successfully fitted eps: {model.eps:.4f}"
+                            if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
+                                msg = getattr(model.res, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
                             st.rerun()
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
@@ -632,11 +1038,18 @@ with col_fit:
                         st.session_state.get("exp_conc_T") is not None):
                         fit_progress = st.progress(0, text="Fitting epsTS...")
                         try:
+                            # Filter NaNs
+                            conc_T = np.array(st.session_state["exp_conc_T"])
+                            ddH = np.array(st.session_state["exp_ddH"])
+                            TddS = np.array(st.session_state["exp_TddS"])
+                            valid_idx = np.isfinite(conc_T) & np.isfinite(ddH) & np.isfinite(TddS)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dH/TdS data points to fit.")
                             # Run fit
                             model.fit_epsTS(
-                                st.session_state["exp_conc_T"],
-                                st.session_state["exp_ddH"],
-                                st.session_state["exp_TddS"],
+                                conc_T[valid_idx],
+                                ddH[valid_idx],
+                                TddS[valid_idx],
                                 concentration_type=fit_conc_type
                             )
                             fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS...")
@@ -647,10 +1060,16 @@ with col_fit:
                             
                             # Save state
                             st.session_state["fitted_epsTS"] = model.epsTS
-                            st.session_state["bin_epsts_input"] = model.epsTS
+                            st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
-                            st.success(f"Successfully fitted epsTS: {model.epsTS:.4f}")
+                            
+                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS: {model.epsTS:.4f}"
+                            if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
+                                msg = getattr(model.resTS, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
                             st.rerun()
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
@@ -679,11 +1098,18 @@ with col_fit:
                         st.session_state.get("exp_conc3") is not None):
                         fit_progress = st.progress(0, text="Fitting eps2 & eps3...")
                         try:
+                            # Filter NaNs
+                            conc2 = np.array(st.session_state["exp_conc2"])
+                            conc3 = np.array(st.session_state["exp_conc3"])
+                            val_G = np.array(st.session_state["exp_val_G"])
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dG data points to fit.")
                             # Run fit
                             model.fit_eps(
-                                st.session_state["exp_conc2"],
-                                st.session_state["exp_conc3"],
-                                st.session_state["exp_val_G"],
+                                conc2[valid_idx],
+                                conc3[valid_idx],
+                                val_G[valid_idx],
                                 concentration_type=fit_conc_type
                             )
                             fit_progress.progress(0.5, text="Solving equilibrium with fitted eps parameters...")
@@ -695,11 +1121,16 @@ with col_fit:
                             # Save state
                             st.session_state["fitted_eps2"] = model.eps2
                             st.session_state["fitted_eps3"] = model.eps3
-                            st.session_state["tern_eps2_input"] = model.eps2
-                            st.session_state["tern_eps3_input"] = model.eps3
+                            st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
-                            st.success(f"Successfully fitted eps2: {model.eps2:.4f}, eps3: {model.eps3:.4f}")
+                            
+                            st.session_state["fit_success_msg"] = f"Successfully fitted eps2: {model.eps2:.4f}, eps3: {model.eps3:.4f}"
+                            if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
+                                msg = getattr(model.res, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
                             st.rerun()
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
@@ -717,12 +1148,20 @@ with col_fit:
                         st.session_state.get("exp_conc3") is not None):
                         fit_progress = st.progress(0, text="Fitting epsTS2 & epsTS3...")
                         try:
+                            # Filter NaNs
+                            conc2 = np.array(st.session_state["exp_conc2"])
+                            conc3 = np.array(st.session_state["exp_conc3"])
+                            val_H = np.array(st.session_state["exp_val_H"])
+                            val_S = np.array(st.session_state["exp_val_S"])
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dH/TdS data points to fit.")
                             # Run fit
                             model.fit_epsTS(
-                                st.session_state["exp_conc2"],
-                                st.session_state["exp_conc3"],
-                                st.session_state["exp_val_H"],
-                                st.session_state["exp_val_S"],
+                                conc2[valid_idx],
+                                conc3[valid_idx],
+                                val_H[valid_idx],
+                                val_S[valid_idx],
                                 concentration_type=fit_conc_type
                             )
                             fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS parameters...")
@@ -734,11 +1173,16 @@ with col_fit:
                             # Save state
                             st.session_state["fitted_epsTS2"] = model.epsTS2
                             st.session_state["fitted_epsTS3"] = model.epsTS3
-                            st.session_state["tern_epsts2_input"] = model.epsTS2
-                            st.session_state["tern_epsts3_input"] = model.epsTS3
+                            st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
-                            st.success(f"Successfully fitted epsTS2: {model.epsTS2:.4f}, epsTS3: {model.epsTS3:.4f}")
+                            
+                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS2: {model.epsTS2:.4f}, epsTS3: {model.epsTS3:.4f}"
+                            if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
+                                msg = getattr(model.resTS, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
                             st.rerun()
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
@@ -782,9 +1226,10 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             with col1:
                 conc_type_plot = st.selectbox("Concentration axis type", ["phi", "molar", "molal"], key="bin_plot_conc")
             with col2:
-                folding_plot = st.checkbox("Plot folding (kJ) vs unfolding (kcal)", value=True, key="bin_plot_folding")
+                plot_unit = st.selectbox("Plotting Unit", ["kJ/mol", "kcal/mol"], key="bin_plot_unit")
             
             # Setup experimental values to overlay if enabled
+            folding_plot = (plot_unit == "kJ/mol")
             plot_kwargs = {"concentration_type": conc_type_plot, "folding": folding_plot}
             if show_exp:
                 # Convert concentrations dynamically to match plotted unit
@@ -810,9 +1255,12 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     plot_kwargs["err_ddH"] = st.session_state.get("err_ddH", np.nan)
                     plot_kwargs["err_TddS"] = st.session_state.get("err_TddS", np.nan)
 
-            plotter = fh_crowding.BinaryPlotter(solved_model)
-            fig = plotter.plot_results(**plot_kwargs)
-            st.pyplot(fig)
+            try:
+                plotter = fh_crowding.BinaryPlotter(solved_model)
+                fig = plotter.plot_results(**plot_kwargs)
+                st.pyplot(fig)
+            except Exception as e:
+                st.error(f"Error rendering preset plots: {e}")
             
         else: # Ternary
             st.subheader("Ternary Standard Presets")
@@ -875,7 +1323,10 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     if hasattr(ax, 'get_xlabel') and ax.get_xlabel() == r'$\phi_2$':
                         ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=25, label='Experimental', zorder=10)
                         
-            st.pyplot(fig)
+            try:
+                st.pyplot(fig)
+            except Exception as e:
+                st.error(f"Error rendering preset plot: {e}")
 
     else: # Custom Axis Plot
         if model_type == "Binary Crowding Model":
@@ -1025,7 +1476,10 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             ax.set_xlabel(x_label)
             ax.set_ylabel(y_label)
             ax.grid(True, linestyle=":", alpha=0.6)
-            st.pyplot(fig)
+            try:
+                st.pyplot(fig)
+            except Exception as e:
+                st.error(f"Error rendering custom 1D plot: {e}")
             
         else: # Ternary Custom Plot
             st.subheader("Custom Ternary Plotting")
@@ -1114,7 +1568,10 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         for ax in ax_row:
                             ax.set_xlabel(r"$\phi_2$")
                             ax.set_ylabel(r"$\phi_3$")
-                    st.pyplot(fig)
+                    try:
+                        st.pyplot(fig)
+                    except Exception as e:
+                        st.error(f"Error rendering custom 2D contour plot subplots: {e}")
                 else:
                     fig, ax = plt.subplots(figsize=(6, 4.5))
                     z_data = getattr(solved_model, z_attr)
@@ -1132,7 +1589,10 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=45, label='Experimental', zorder=10)
                         ax.legend()
                         
-                    st.pyplot(fig)
+                    try:
+                        st.pyplot(fig)
+                    except Exception as e:
+                        st.error(f"Error rendering custom 2D contour plot: {e}")
                     
             else: # 1D Slice Plot
                 st.write("Slices through the 2D concentration space to make 1D plots.")
@@ -1240,4 +1700,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 ax.grid(True, linestyle=":", alpha=0.6)
-                st.pyplot(fig)
+                try:
+                    st.pyplot(fig)
+                except Exception as e:
+                    st.error(f"Error rendering custom 1D slice plot: {e}")

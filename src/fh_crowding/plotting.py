@@ -62,6 +62,20 @@ class BinaryPlotter:
         '''
         
         assert self.model.flag, 'Run solve_equil first'
+        if not folding:
+            if exp_ddG is not None and not (isinstance(exp_ddG, float) and np.isnan(exp_ddG)):
+                exp_ddG = np.array(exp_ddG) / 4.184
+            if err_ddG is not None and not (isinstance(err_ddG, float) and np.isnan(err_ddG)):
+                err_ddG = np.array(err_ddG) / 4.184
+            if exp_ddH is not None and not (isinstance(exp_ddH, float) and np.isnan(exp_ddH)):
+                exp_ddH = np.array(exp_ddH) / 4.184
+            if err_ddH is not None and not (isinstance(err_ddH, float) and np.isnan(err_ddH)):
+                err_ddH = np.array(err_ddH) / 4.184
+            if exp_TddS is not None and not (isinstance(exp_TddS, float) and np.isnan(exp_TddS)):
+                exp_TddS = np.array(exp_TddS) / 4.184
+            if err_TddS is not None and not (isinstance(err_TddS, float) and np.isnan(err_TddS)):
+                err_TddS = np.array(err_TddS) / 4.184
+
         if concentration_type == 'phi':
             conc = self.model.phiC
             str_conc = r'$\phi_C$'

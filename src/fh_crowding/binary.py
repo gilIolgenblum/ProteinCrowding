@@ -95,16 +95,16 @@ class BinaryCrowdingModel(Cosolute):
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
         self.flag=True
         self.res = minimize(self.msd_fit_eps, self.eps, (exp_ddG,), options={'disp':disp})
+        try:
+            self.eps = float(self.res.x[0])
+        except Exception:
+            self.eps = float(self.res.x)
         # return to model arrays
         self.phiC, self.phiS= model_phiC, model_phiS
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
         self.phiCsurf = np.zeros(self.phiC.shape)
         # solve for final eps
         self.solve_equil()
-        try:
-            self.eps = float(self.eps[0])  # type: ignore[index]
-        except Exception:
-            self.eps = float(self.eps)
         self.to_pandas()
 
     def fit_epsTS(self, exp_conc: Sequence[float], exp_ddH: Sequence[float], exp_TddS: Sequence[float],
@@ -135,22 +135,18 @@ class BinaryCrowdingModel(Cosolute):
         self.phiS = 1-self.phiC
         self.phiCsurf = np.zeros(self.phiC.shape)
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
-        self.flag=True
         self.resTS = minimize(self.msd_fit_epsTS, np.array(self.epsTS), (exp_ddH, exp_TddS), options={'disp':disp})
+        try:
+            self.epsTS = float(self.resTS.x[0])
+        except Exception:
+            self.epsTS = float(self.resTS.x)
+        self.epsH = self.eps + self.epsTS
         # return to model arrays
         self.phiC, self.phiS= model_phiC, model_phiS
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
         self.phiCsurf = np.zeros(self.phiC.shape)
         # solve for final eps
         self.solve_equil()
-        try:
-            self.epsTS = float(self.epsTS[0])  # type: ignore[index]
-        except Exception:
-            self.epsTS = float(self.epsTS)
-        try:
-            self.epsH = float(self.epsH[0])  # type: ignore[index]
-        except Exception:
-            self.epsH = float(self.epsH)
         self.to_pandas()
         
     def msd_fit_eps(self, eps: Union[float, np.ndarray], ddG: np.ndarray):
@@ -402,7 +398,7 @@ class BinaryCrowdingModel(Cosolute):
         self.ddA_Ms = self.ddA_nu_Ms + self.ddA_chi_Ms + self.ddA_eps_Ms
         self.ddA = self.ddA_nu + self.ddA_chi + self.ddA_eps
         self.ddA_kj = self.ddA_nu_kj + self.ddA_chi_kj + self.ddA_eps_kj
-        self.ddA_kcal = -self.ddA_kj/4.184
+        self.ddA_kcal = self.ddA_kj/4.184
 
     def cal_Energy_chi(self):
         ''' Calculate the contribution of non-ideal mixing to the folding energy '''
@@ -429,7 +425,7 @@ class BinaryCrowdingModel(Cosolute):
         self.ddE_Ms = self.ddE_chi_Ms + self.ddE_eps_Ms
         self.ddE = self.ddE_chi + self.ddE_eps
         self.ddE_kj = self.ddE_chi_kj + self.ddE_eps_kj
-        self.ddE_kcal = -self.ddE_kj/4.184
+        self.ddE_kcal = self.ddE_kj/4.184
 
     def cal_Entropy_nu(self):
         ''' Calculate the contribution of excluded volume to the folding entropy '''
@@ -437,7 +433,7 @@ class BinaryCrowdingModel(Cosolute):
         self.TddS_nu_Ms = -self.ddA_nu_Ms
         self.TddS_nu = -self.ddA_nu
         self.TddS_nu_kj = -self.ddA_nu_kj
-        self.TddS_nu_kcal = -self.TddS_nu_kj/4.184
+        self.TddS_nu_kcal = self.TddS_nu_kj/4.184
         
     def cal_Entropy_chi(self):
         ''' Calculate the contribution of non-ideal mixing to the folding entropy '''
@@ -445,7 +441,7 @@ class BinaryCrowdingModel(Cosolute):
         self.TddS_chi_Ms = self.ddE_chi_Ms-self.ddA_chi_Ms
         self.TddS_chi = self.ddE_chi-self.ddA_chi
         self.TddS_chi_kj = self.ddE_chi_kj-self.ddA_chi_kj
-        self.TddS_chi_kcal = -self.TddS_chi_kj/4.184
+        self.TddS_chi_kcal = self.TddS_chi_kj/4.184
         
     def cal_Entropy_eps(self):
         ''' Calculate the contribution of soft-interactions to the folding entropy '''
@@ -453,7 +449,7 @@ class BinaryCrowdingModel(Cosolute):
         self.TddS_eps_Ms = self.ddE_eps_Ms-self.ddA_eps_Ms
         self.TddS_eps = self.ddE_eps-self.ddA_eps
         self.TddS_eps_kj = self.ddE_eps_kj-self.ddA_eps_kj
-        self.TddS_eps_kcal = -self.TddS_eps_kj/4.184
+        self.TddS_eps_kcal = self.TddS_eps_kj/4.184
         
     def cal_Entropy(self):
         ''' Calculate the folding entropy '''
@@ -461,7 +457,7 @@ class BinaryCrowdingModel(Cosolute):
         self.TddS_Ms = self.TddS_nu_Ms + self.TddS_chi_Ms + self.TddS_eps_Ms
         self.TddS = self.TddS_nu + self.TddS_chi + self.TddS_eps
         self.TddS_kj = self.TddS_nu_kj + self.TddS_chi_kj + self.TddS_eps_kj
-        self.TddS_kcal = -self.TddS_kj/4.184
+        self.TddS_kcal = self.TddS_kj/4.184
     
     def cal_gamma(self):
         ''' Calculate the preferential hydration coefficient '''

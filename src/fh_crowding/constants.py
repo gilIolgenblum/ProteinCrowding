@@ -27,5 +27,5 @@ class Constants:
         return x * self.R * T_use / 1000.0
 
     def _to_kcal(self, x: Union[float, np.ndarray], T: Optional[float] = None) -> Union[float, np.ndarray]:
-        return -self._to_kj(x, T) / 4.184
+        return self._to_kj(x, T) / 4.184
 
