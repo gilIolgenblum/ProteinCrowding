@@ -3,6 +3,7 @@ output/
 
 # Ignore refrence directories
 notebooks/
+antigravity_streamlit_agent_markdowns/
 
 # Python caches
 __pycache__/
