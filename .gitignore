@@ -1,6 +1,9 @@
 # Ignore the output directory
 output/
 
+# Ignore refrence directories
+notebooks/
+
 # Python caches
 __pycache__/
 *.pyc

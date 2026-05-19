@@ -225,11 +225,20 @@ if model_type == "Binary Crowding Model":
         help="Concentration grid step size. Smaller = finer grid, slower simulation. "
              "Package default: 0.0001. App default: 0.001 (10× faster).",
     )
+    phiC_max = st.sidebar.number_input(
+        "phiC_max (max concentration)",
+        value=0.15,
+        min_value=0.001,
+        max_value=1.0,
+        step=0.01,
+        format="%.3f",
+        help="Maximum volume fraction of the grid. Default: 0.15.",
+    )
 
     cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
     model = fh_crowding.BinaryCrowdingModel(
         protein=protein, cosolute=cosolute, eps=eps, epsTS=epsTS,
-        dphiC=dphiC, T=T,
+        dphiC=dphiC, phiC_max=phiC_max, T=T,
     )
 
 
@@ -327,6 +336,24 @@ else:
         format="%.5f",
         help="Grid step for cosolute 3 axis. Package default: 0.0001. App default: 0.001.",
     )
+    phi2_max = st.sidebar.number_input(
+        "phi2_max (max concentration 2)",
+        value=0.15,
+        min_value=0.001,
+        max_value=1.0,
+        step=0.01,
+        format="%.3f",
+        help="Maximum volume fraction of cosolute 2. Default: 0.15.",
+    )
+    phi3_max = st.sidebar.number_input(
+        "phi3_max (max concentration 3)",
+        value=0.15,
+        min_value=0.001,
+        max_value=1.0,
+        step=0.01,
+        format="%.3f",
+        help="Maximum volume fraction of cosolute 3. Default: 0.15.",
+    )
 
     cosolutes = fh_crowding.CosoluteMixture(
         nu2=nu2, nu3=nu3,
@@ -338,6 +365,7 @@ else:
         eps2=eps2, eps3=eps3, eps23=eps23,
         epsTS2=epsTS2, epsTS3=epsTS3, epsTS23=epsTS23,
         dphi2=dphi2, dphi3=dphi3,
+        phi2_max=phi2_max, phi3_max=phi3_max,
         T=T,
     )
 
@@ -584,6 +612,7 @@ with col_fit:
                             
                             # Save state
                             st.session_state["fitted_eps"] = model.eps
+                            st.session_state["bin_eps_input"] = model.eps
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.success(f"Successfully fitted eps: {model.eps:.4f}")
@@ -618,6 +647,7 @@ with col_fit:
                             
                             # Save state
                             st.session_state["fitted_epsTS"] = model.epsTS
+                            st.session_state["bin_epsts_input"] = model.epsTS
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.success(f"Successfully fitted epsTS: {model.epsTS:.4f}")
@@ -665,6 +695,8 @@ with col_fit:
                             # Save state
                             st.session_state["fitted_eps2"] = model.eps2
                             st.session_state["fitted_eps3"] = model.eps3
+                            st.session_state["tern_eps2_input"] = model.eps2
+                            st.session_state["tern_eps3_input"] = model.eps3
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.success(f"Successfully fitted eps2: {model.eps2:.4f}, eps3: {model.eps3:.4f}")
@@ -702,6 +734,8 @@ with col_fit:
                             # Save state
                             st.session_state["fitted_epsTS2"] = model.epsTS2
                             st.session_state["fitted_epsTS3"] = model.epsTS3
+                            st.session_state["tern_epsts2_input"] = model.epsTS2
+                            st.session_state["tern_epsts3_input"] = model.epsTS3
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.success(f"Successfully fitted epsTS2: {model.epsTS2:.4f}, epsTS3: {model.epsTS3:.4f}")
