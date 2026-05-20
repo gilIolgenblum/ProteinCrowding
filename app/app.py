@@ -4,8 +4,35 @@ import numpy as np
 from io import StringIO
 import matplotlib.pyplot as plt
 import fh_crowding
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
+import session_io
+import export
 
 st.set_page_config(page_title="FH Crowding Model", layout="wide")
+
+def _display_and_export_plot(fig, filename, key):
+    st.pyplot(fig)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            "📥 Download Plot (PNG)",
+            data=export.fig_to_bytes(fig, "png"),
+            file_name=f"{filename}.png",
+            mime="image/png",
+            key=f"{key}_png",
+            use_container_width=True
+        )
+    with col2:
+        st.download_button(
+            "📥 Download Plot (SVG)",
+            data=export.fig_to_bytes(fig, "svg"),
+            file_name=f"{filename}.svg",
+            mime="image/svg+xml",
+            key=f"{key}_svg",
+            use_container_width=True
+        )
 
 # ---------------------------------------------------------------------------
 # Cosolute database — individual cosolutes
@@ -348,14 +375,26 @@ def read_uploaded_csv(file_obj):
 # Initialise session state defaults (only on first load)
 # ---------------------------------------------------------------------------
 _defaults = {
+    # common configuration
+    "SASA": 419.0,
+    "use_T": True,
+    "T_input": 298.15,
+
     # binary cosolute
     "bin_nu":    1.0,  "bin_chi":   0.1,  "bin_chiTS":  -0.05,
+    "bin_dphiC": 0.001, "bin_phiC_max": 0.15,
+    
     # ternary cosolute 2
     "nu2":       1.0,  "chi12":     0.1,  "chiTS12":    -0.05,
+    "tern_dphi2": 0.001, "tern_phi2_max": 0.15,
+    
     # ternary cosolute 3
     "nu3":       1.0,  "chi13":     0.1,  "chiTS13":    -0.05,
+    "tern_dphi3": 0.001, "tern_phi3_max": 0.15,
+    
     # ternary cross-interaction
     "chi23":     0.0,  "chiTS23":   0.0,
+    "eps23":     0.0,  "epsTS23":   0.0,
     
     # experimental data keys
     "exp_conc_G": None, "exp_ddG": None, "err_ddG": None,
@@ -411,6 +450,51 @@ model_type = st.sidebar.selectbox(
     "Model Type", ["Binary Crowding Model", "Ternary Crowding Model"]
 )
 
+# ---------------------------------------------------------------------------
+# Sidebar — Save/Load Session
+# ---------------------------------------------------------------------------
+st.sidebar.markdown("---")
+with st.sidebar.expander("💾 Save/Load Session", expanded=False):
+    st.markdown("### Save Current Session")
+    try:
+        session_json = session_io.serialize_session_state()
+        filename_prefix = "fh_binary" if model_type == "Binary Crowding Model" else "fh_ternary"
+        st.download_button(
+            "📥 Download Session JSON",
+            data=session_json,
+            file_name=f"{filename_prefix}_session.json",
+            mime="application/json",
+            key="download_session_btn",
+            use_container_width=True
+        )
+    except Exception as ex:
+        st.error(f"Error preparing session data: {ex}")
+        
+    st.markdown("---")
+    st.markdown("### Load Session")
+    uploaded_session = st.file_uploader("Upload JSON Session", type=["json"], key="session_uploader")
+    if uploaded_session is not None:
+        try:
+            content = uploaded_session.read().decode("utf-8")
+            payload = session_io.deserialize_session_file(content)
+            is_valid, msg = session_io.validate_session_payload(payload)
+            if not is_valid:
+                st.error(f"Invalid session format: {msg}")
+            else:
+                st.success("Session file successfully validated!")
+                # Simple summary preview
+                st.markdown("**Session Summary:**")
+                st.markdown(f"- Model: `{payload['model_type']}`")
+                st.markdown(f"- Temp: `{payload['temperature']['T']} K`")
+                st.markdown(f"- SASA: `{payload['protein']['SASA']}`")
+                if st.button("Apply Restored Session", key="btn_apply_session", use_container_width=True):
+                    session_io.apply_session_payload(payload)
+                    st.success("Restored session state! Rerunning...")
+                    st.rerun()
+        except Exception as ex:
+            st.error(f"Failed to parse session file: {ex}")
+st.sidebar.markdown("---")
+
 
 # Clear fit messages on sample selection change or model type change
 if "last_bin_sample" not in st.session_state:
@@ -444,12 +528,12 @@ if model_type != st.session_state["last_model_type"]:
     st.session_state["fit_warning_msg"] = None
 
 st.sidebar.subheader("Protein")
-SASA = st.sidebar.number_input("SASA", value=419.0)
+SASA = st.sidebar.number_input("SASA", step=1.0, format="%.1f", key="SASA")
 protein = fh_crowding.Protein(SASA=SASA)
 
 st.sidebar.subheader("Temperature")
-use_T = st.sidebar.checkbox("Include Temperature", value=True)
-T = st.sidebar.number_input("Temperature (K)", value=298.15) if use_T else 298.15
+use_T = st.sidebar.checkbox("Include Temperature", key="use_T")
+T = st.sidebar.number_input("Temperature (K)", step=0.1, format="%.2f", key="T_input") if use_T else 298.15
 
 
 # ---------------------------------------------------------------------------
@@ -485,21 +569,21 @@ if model_type == "Binary Crowding Model":
     st.sidebar.subheader("Concentration Grid")
     dphiC = st.sidebar.number_input(
         "dphiC (step size)",
-        value=0.001,
         min_value=1e-5,
         max_value=0.05,
         step=0.0005,
         format="%.5f",
+        key="bin_dphiC",
         help="Concentration grid step size. Smaller = finer grid, slower simulation. "
              "Package default: 0.0001. App default: 0.001 (10× faster).",
     )
     phiC_max = st.sidebar.number_input(
         "phiC_max (max concentration)",
-        value=0.15,
         min_value=0.001,
         max_value=1.0,
         step=0.01,
         format="%.3f",
+        key="bin_phiC_max",
         help="Maximum volume fraction of the grid. Default: 0.15.",
     )
 
@@ -575,45 +659,45 @@ else:
     st.sidebar.subheader("Cosolute–Cosolute Interactions")
     chi23   = st.sidebar.number_input("chi23",   key="chi23",   step=0.01, format="%.4f")
     chiTS23 = st.sidebar.number_input("chiTS23", key="chiTS23", step=0.01, format="%.4f")
-    eps23   = st.sidebar.number_input("eps23",   value=0.0, step=0.01, format="%.4f")
-    epsTS23 = st.sidebar.number_input("epsTS23", value=0.0, step=0.01, format="%.4f")
+    eps23   = st.sidebar.number_input("eps23",   step=0.01, format="%.4f", key="eps23")
+    epsTS23 = st.sidebar.number_input("epsTS23", step=0.01, format="%.4f", key="epsTS23")
 
     # --- Concentration grid ---
     st.sidebar.subheader("Concentration Grid")
     dphi2 = st.sidebar.number_input(
         "dphi2 (step size for cosolute 2)",
-        value=0.001,
         min_value=1e-5,
         max_value=0.05,
         step=0.0005,
         format="%.5f",
+        key="tern_dphi2",
         help="Grid step for cosolute 2 axis. Package default: 0.0001. App default: 0.001.",
     )
     dphi3 = st.sidebar.number_input(
         "dphi3 (step size for cosolute 3)",
-        value=0.001,
         min_value=1e-5,
         max_value=0.05,
         step=0.0005,
         format="%.5f",
+        key="tern_dphi3",
         help="Grid step for cosolute 3 axis. Package default: 0.0001. App default: 0.001.",
     )
     phi2_max = st.sidebar.number_input(
         "phi2_max (max concentration 2)",
-        value=0.15,
         min_value=0.001,
         max_value=1.0,
         step=0.01,
         format="%.3f",
+        key="tern_phi2_max",
         help="Maximum volume fraction of cosolute 2. Default: 0.15.",
     )
     phi3_max = st.sidebar.number_input(
         "phi3_max (max concentration 3)",
-        value=0.15,
         min_value=0.001,
         max_value=1.0,
         step=0.01,
         format="%.3f",
+        key="tern_phi3_max",
         help="Maximum volume fraction of cosolute 3. Default: 0.15.",
     )
 
@@ -631,6 +715,23 @@ else:
         T=T,
     )
 
+# ---------------------------------------------------------------------------
+# Automatic rerun if session has just been restored
+# ---------------------------------------------------------------------------
+if st.session_state.get("session_restored"):
+    try:
+        kw = {}
+        if model_type == "Ternary Crowding Model":
+            kw["print_msg"] = False
+        model.solve_equil(**kw)
+        model.to_pandas()
+        st.session_state["solved_model"] = model
+        st.session_state["solved_model_type"] = model_type
+        st.session_state["session_restored"] = False
+        st.session_state["fit_updated"] = False  # Reset widget state flags
+    except Exception as ex:
+        st.error(f"Error executing auto-solve after session restore: {ex}")
+        st.session_state["session_restored"] = False
 
 # ---------------------------------------------------------------------------
 # Section 1: Experimental Data Upload (Expandable, at top of page)
@@ -950,11 +1051,12 @@ with col_sim:
         solved_model = st.session_state["solved_model"]
         
         st.markdown("### Export Simulated Quantities")
-        csv = solved_model.results.to_csv(index=False)
+        csv = export.get_model_results_csv(solved_model)
+        filename_prefix = "fh_crowding_binary" if model_type == "Binary Crowding Model" else "fh_crowding_ternary"
         st.download_button(
             "📥 Download Simulation Results (CSV)",
             data=csv,
-            file_name="simulation_results.csv",
+            file_name=f"{filename_prefix}_model_results.csv",
             mime="text/csv",
             use_container_width=True
         )
@@ -1083,6 +1185,19 @@ with col_fit:
                 st.metric("Fitted eps", f"{model.eps:.4f}" if st.session_state["fitted_eps"] is not None else "None")
             with col_m2:
                 st.metric("Fitted epsTS", f"{model.epsTS:.4f}" if st.session_state["fitted_epsTS"] is not None else "None")
+            
+            # Download fitted parameters button
+            has_fit = st.session_state["fitted_eps"] is not None or st.session_state["fitted_epsTS"] is not None
+            if has_fit:
+                fit_csv = export.get_fitted_parameters_csv(model_type, st.session_state)
+                st.download_button(
+                    "📥 Download Fitted Parameters (CSV)",
+                    data=fit_csv,
+                    file_name="fh_crowding_binary_fit_parameters.csv",
+                    mime="text/csv",
+                    key="download_fit_params_binary",
+                    use_container_width=True
+                )
         
         # Ternary fitting controls
         else:
@@ -1198,6 +1313,22 @@ with col_fit:
             with col_m2:
                 st.metric("Fitted epsTS2", f"{model.epsTS2:.4f}" if st.session_state["fitted_epsTS2"] is not None else "None")
                 st.metric("Fitted epsTS3", f"{model.epsTS3:.4f}" if st.session_state["fitted_epsTS3"] is not None else "None")
+                
+            # Download fitted parameters button
+            has_fit = (st.session_state["fitted_eps2"] is not None or 
+                       st.session_state["fitted_eps3"] is not None or 
+                       st.session_state["fitted_epsTS2"] is not None or 
+                       st.session_state["fitted_epsTS3"] is not None)
+            if has_fit:
+                fit_csv = export.get_fitted_parameters_csv(model_type, st.session_state)
+                st.download_button(
+                    "📥 Download Fitted Parameters (CSV)",
+                    data=fit_csv,
+                    file_name="fh_crowding_ternary_fit_parameters.csv",
+                    mime="text/csv",
+                    key="download_fit_params_ternary",
+                    use_container_width=True
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -1212,7 +1343,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
     # Checkbox to overlay experimental data (shown only if some exp data is uploaded)
     show_exp = False
     if st.session_state["exp_data_loaded"]:
-        show_exp = st.checkbox("Overlay uploaded experimental data on plots", value=True)
+        show_exp = st.checkbox("Overlay uploaded experimental data on plots", value=True, key="show_exp_data")
         
     plot_option = st.selectbox(
         "Select Plotting Mode",
@@ -1258,7 +1389,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             try:
                 plotter = fh_crowding.BinaryPlotter(solved_model)
                 fig = plotter.plot_results(**plot_kwargs)
-                st.pyplot(fig)
+                _display_and_export_plot(fig, "fh_crowding_binary_preset_plot", "bin_preset_plot")
             except Exception as e:
                 st.error(f"Error rendering preset plots: {e}")
             
@@ -1312,7 +1443,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 fig = plotter.plot_Gamma_mu()
                 
             # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
-            if show_exp and st.session_state.get("exp_conc2") is not None:
+            is_fold_preset = any(p in preset_plot for p in ["ddG (3x3 contour)", "TddS", "ddH"])
+            if show_exp and is_fold_preset and st.session_state.get("exp_conc2") is not None:
                 # Convert exp points concentration to phi
                 exp_x_phi = convert_exp_conc(st.session_state["exp_conc2"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
                 exp_y_phi = convert_exp_conc(st.session_state["exp_conc3"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3"])
@@ -1324,7 +1456,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=25, label='Experimental', zorder=10)
                         
             try:
-                st.pyplot(fig)
+                _display_and_export_plot(fig, "fh_crowding_ternary_preset_plot", "tern_preset_plot")
             except Exception as e:
                 st.error(f"Error rendering preset plot: {e}")
 
@@ -1358,25 +1490,43 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             x_attr, x_label = properties[x_name]
             y_attr, y_label = properties[y_name]
             
+            # Detect potential base types for unit alignment
+            x_base = None
+            y_base = None
+            for prefix in ["ddA", "ddE", "TddS"]:
+                if prefix in x_attr:
+                    x_base = prefix
+                if prefix in y_attr:
+                    y_base = prefix
+                    
             # Check if Y-Axis is one of the potentials for contribution plotting
             is_potential = False
             pot_type = None
             pot_unit = "kJ"
-            if "ddA" in y_attr:
+            if y_base is not None:
                 is_potential = True
-                pot_type = "ddA"
-                pot_unit = "kcal" if "kcal" in y_attr else "kJ"
-            elif "ddE" in y_attr:
-                is_potential = True
-                pot_type = "ddE"
-                pot_unit = "kcal" if "kcal" in y_attr else "kJ"
-            elif "TddS" in y_attr:
-                is_potential = True
-                pot_type = "TddS"
+                pot_type = y_base
                 pot_unit = "kcal" if "kcal" in y_attr else "kJ"
                 
+            # Align unit of X-axis to match Y-axis if both are thermodynamic potentials
+            if x_base is not None and y_base is not None:
+                if pot_unit == "kcal" and "kcal" not in x_attr:
+                    x_attr = f"{x_base}_kcal"
+                    # Find correct label from properties dict
+                    for k, v in properties.items():
+                        if v[0] == x_attr:
+                            x_label = v[1]
+                            break
+                elif pot_unit == "kJ" and "kj" not in x_attr:
+                    x_attr = f"{x_base}_kj"
+                    # Find correct label from properties dict
+                    for k, v in properties.items():
+                        if v[0] == x_attr:
+                            x_label = v[1]
+                            break
+
             plot_contrib = False
-            if is_potential:
+            if is_potential and x_base != y_base:
                 plot_contrib = st.checkbox("Plot alongside contributions (nu, chi, eps)", value=True)
                 
             fig, ax = plt.subplots(figsize=(6, 4))
@@ -1418,17 +1568,18 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             else:
                 y_data = getattr(solved_model, y_attr)
                 ax.plot(x_data, y_data, color="black", linewidth=2, label="Model results")
-                
             # Overlay custom experimental points if requested and applicable
             if show_exp:
+                exp_x = None
                 exp_y = None
                 err_y = None
-                exp_x = None
+                y_conc = None
                 
+                # Identify dataset and Y-values based on Y-axis attribute
                 if "ddA" in y_attr:
                     exp_y = st.session_state.get("exp_ddG")
                     err_y = st.session_state.get("err_ddG")
-                    exp_x = st.session_state.get("exp_conc_G")
+                    y_conc = st.session_state.get("exp_conc_G")
                     if "kcal" in y_attr and exp_y is not None:
                         exp_y = exp_y / 4.184
                         if err_y is not None:
@@ -1436,7 +1587,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 elif "ddE" in y_attr:
                     exp_y = st.session_state.get("exp_ddH")
                     err_y = st.session_state.get("err_ddH")
-                    exp_x = st.session_state.get("exp_conc_T")
+                    y_conc = st.session_state.get("exp_conc_T")
                     if "kcal" in y_attr and exp_y is not None:
                         exp_y = exp_y / 4.184
                         if err_y is not None:
@@ -1444,30 +1595,57 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 elif "TddS" in y_attr:
                     exp_y = st.session_state.get("exp_TddS")
                     err_y = st.session_state.get("err_TddS")
-                    exp_x = st.session_state.get("exp_conc_T")
+                    y_conc = st.session_state.get("exp_conc_T")
                     if "kcal" in y_attr and exp_y is not None:
                         exp_y = exp_y / 4.184
                         if err_y is not None:
                             err_y = err_y / 4.184
                             
+                # Determine experimental X-values based on X-axis attribute and Y-axis's concentration points
+                if exp_y is not None and y_conc is not None:
+                    if x_attr in ["phiC", "molar", "molal"]:
+                        exp_x = convert_exp_conc(
+                            y_conc,
+                            from_type=uploaded_conc_unit,
+                            to_type=x_attr if x_attr != "phi" else "phiC",
+                            model=solved_model
+                        )
+                    elif "ddA" in x_attr:
+                        ref_g = st.session_state.get("exp_conc_G")
+                        val_g = st.session_state.get("exp_ddG")
+                        if ref_g is not None and val_g is not None:
+                            sort_idx = np.argsort(ref_g)
+                            exp_x = np.interp(y_conc, ref_g[sort_idx], val_g[sort_idx])
+                            if "kcal" in x_attr:
+                                exp_x = exp_x / 4.184
+                    elif "ddE" in x_attr:
+                        ref_t = st.session_state.get("exp_conc_T")
+                        val_h = st.session_state.get("exp_ddH")
+                        if ref_t is not None and val_h is not None:
+                            sort_idx = np.argsort(ref_t)
+                            exp_x = np.interp(y_conc, ref_t[sort_idx], val_h[sort_idx])
+                            if "kcal" in x_attr:
+                                exp_x = exp_x / 4.184
+                    elif "TddS" in x_attr:
+                        ref_t = st.session_state.get("exp_conc_T")
+                        val_s = st.session_state.get("exp_TddS")
+                        if ref_t is not None and val_s is not None:
+                            sort_idx = np.argsort(ref_t)
+                            exp_x = np.interp(y_conc, ref_t[sort_idx], val_s[sort_idx])
+                            if "kcal" in x_attr:
+                                exp_x = exp_x / 4.184
+                                
                 if exp_y is not None and exp_x is not None:
-                    # Match experimental concentration type to plotted axis unit
-                    exp_x_converted = convert_exp_conc(
-                        exp_x,
-                        from_type=uploaded_conc_unit,
-                        to_type=x_attr if x_attr != "phi" else "phiC",
-                        model=solved_model
-                    )
                     # Scatter experimental data points
                     if err_y is not None and not np.all(np.isnan(err_y)):
                         ax.errorbar(
-                            exp_x_converted, exp_y, yerr=err_y,
+                            exp_x, exp_y, yerr=err_y,
                             fmt='o', color='red', ecolor='red', capsize=4,
                             label='Experimental', zorder=5
                         )
                     else:
                         ax.scatter(
-                            exp_x_converted, exp_y,
+                            exp_x, exp_y,
                             color='red', edgecolor='black', s=45,
                             label='Experimental', zorder=5
                         )
@@ -1477,7 +1655,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             ax.set_ylabel(y_label)
             ax.grid(True, linestyle=":", alpha=0.6)
             try:
-                st.pyplot(fig)
+                _display_and_export_plot(fig, "fh_crowding_binary_custom_plot", "bin_custom_plot")
             except Exception as e:
                 st.error(f"Error rendering custom 1D plot: {e}")
             
@@ -1569,7 +1747,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                             ax.set_xlabel(r"$\phi_2$")
                             ax.set_ylabel(r"$\phi_3$")
                     try:
-                        st.pyplot(fig)
+                        _display_and_export_plot(fig, "fh_crowding_ternary_contour_subplots", "tern_contour_subplots")
                     except Exception as e:
                         st.error(f"Error rendering custom 2D contour plot subplots: {e}")
                 else:
@@ -1583,14 +1761,14 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     fig.colorbar(cp)
                     
                     # Overlay experimental points on single contour
-                    if show_exp and st.session_state.get("exp_conc2") is not None:
+                    if show_exp and is_potential and st.session_state.get("exp_conc2") is not None:
                         exp_x_phi = convert_exp_conc(st.session_state["exp_conc2"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
                         exp_y_phi = convert_exp_conc(st.session_state["exp_conc3"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3"])
                         ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=45, label='Experimental', zorder=10)
                         ax.legend()
                         
                     try:
-                        st.pyplot(fig)
+                        _display_and_export_plot(fig, "fh_crowding_ternary_contour_plot", "tern_contour_plot")
                     except Exception as e:
                         st.error(f"Error rendering custom 2D contour plot: {e}")
                     
@@ -1701,6 +1879,6 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 ax.set_ylabel(y_label)
                 ax.grid(True, linestyle=":", alpha=0.6)
                 try:
-                    st.pyplot(fig)
+                    _display_and_export_plot(fig, "fh_crowding_ternary_slice_plot", "tern_slice_plot")
                 except Exception as e:
                     st.error(f"Error rendering custom 1D slice plot: {e}")
