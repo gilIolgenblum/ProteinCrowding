@@ -161,7 +161,7 @@ class TernaryCrowdingModel(CosoluteMixture):
    
     def cal_ddG_nu(self):
         ''' Calculate the excluded volume folding free energy '''
-        return self.phi1s-self.phi1+self.phi1s*np.log(self.phi1)-self.phi1s2*self.Ms2_Ms*np.log(self.phi1s2)-self.phi1s3*self.Ms3_Ms*np.log(self.phi1s3)+ 1/self.nu2*( self.phi2s-self.phi2+self.phi2s*np.log(self.phi2)-self.phi2s2*self.Ms2_Ms*np.log(self.phi2s2)-self.phi2s3*self.Ms3_Ms*np.log(self.phi2s3) ) + 1/self.nu3*( self.phi3s-self.phi3+self.phi3s*np.log(self.phi3)-self.phi3s3*self.Ms3_Ms*np.log(self.phi3s3) ) 
+        return self.phi1s-self.phi1+self.phi1s*self._log(self.phi1)-self.phi1s2*self.Ms2_Ms*self._log(self.phi1s2)-self.phi1s3*self.Ms3_Ms*self._log(self.phi1s3)+ 1/self.nu2*( self.phi2s-self.phi2+self.phi2s*self._log(self.phi2)-self.phi2s2*self.Ms2_Ms*self._log(self.phi2s2)-self.phi2s3*self.Ms3_Ms*self._log(self.phi2s3) ) + 1/self.nu3*( self.phi3s-self.phi3+self.phi3s*self._log(self.phi3)-self.phi3s3*self.Ms3_Ms*self._log(self.phi3s3) ) 
         
     def cal_ddG_chi(self):
         ''' Calculate the non-ideal folding free energy '''
@@ -521,6 +521,16 @@ class TernaryCrowdingModel(CosoluteMixture):
                 return float(np.dot(r, r))
             self.res = minimize(sse, x0, method=method, bounds=bounds,
                                 options={'disp': disp, 'maxiter': 1000})
+        # Assign optimal values
+        x_opt = self.res.x
+        k = 0
+        if fit_eps2:
+            self.eps2 = float(x_opt[k]); k += 1
+        if fit_eps3:
+            self.eps3 = float(x_opt[k]); k += 1
+        if fit_eps23:
+            self.eps23 = float(x_opt[k]); k += 1
+
         # return to model arrays
         self.phi1, self.phi2, self.phi3 = model_phi1, model_phi2, model_phi3
         self.mu1, self.mu2, self.mu3 = self.cal_mu1(), self.cal_mu2(), self.cal_mu3()
@@ -603,7 +613,21 @@ class TernaryCrowdingModel(CosoluteMixture):
             self.resTS = minimize(sse, x0, method=method, bounds=bounds,
                                   options={'disp': disp, 'maxiter': 1000})
         
-        
+        # Assign optimal values
+        x_opt = self.resTS.x
+        k = 0
+        if fit_epsTS2:
+            self.epsTS2 = float(x_opt[k]); k += 1
+        if fit_epsTS3:
+            self.epsTS3 = float(x_opt[k]); k += 1
+        if fit_epsTS23:
+            self.epsTS23 = float(x_opt[k]); k += 1
+
+        self.epsH2 = self.eps2 + self.epsTS2
+        self.epsH3 = self.eps3 + self.epsTS3
+        if hasattr(self, 'eps23'):
+            self.epsH23 = self.eps23 + self.epsTS23
+
         # return to model arrays
         self.phi1, self.phi2, self.phi3 = model_phi1, model_phi2, model_phi3
         self.mu1, self.mu2, self.mu3 = self.cal_mu1(), self.cal_mu2(), self.cal_mu3()
