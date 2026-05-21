@@ -65,8 +65,8 @@ def serialize_session_state() -> str:
         "epsTS23": state.get("epsTS23", 0.0),
         "dphi2": state.get("tern_dphi2", 0.001),
         "dphi3": state.get("tern_dphi3", 0.001),
-        "phi2_max": state.get("tern_phi2_max", 0.15),
-        "phi3_max": state.get("tern_phi3_max", 0.15)
+        "phi2_max": state.get("tern_phi2_max", 0.2),
+        "phi3_max": state.get("tern_phi3_max", 0.2)
     }
     
     # Extract unit settings
@@ -304,8 +304,8 @@ def apply_session_payload(payload: dict) -> None:
         state["epsTS23"] = tern_params.get("epsTS23", 0.0)
         state["tern_dphi2"] = tern_params.get("dphi2", 0.001)
         state["tern_dphi3"] = tern_params.get("dphi3", 0.001)
-        state["tern_phi2_max"] = tern_params.get("phi2_max", 0.15)
-        state["tern_phi3_max"] = tern_params.get("phi3_max", 0.15)
+        state["tern_phi2_max"] = tern_params.get("phi2_max", 0.2)
+        state["tern_phi3_max"] = tern_params.get("phi3_max", 0.2)
         
     # Apply fitted parameters
     fitted_parameters = payload.get("fitted_parameters", {})

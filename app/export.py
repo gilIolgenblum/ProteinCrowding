@@ -22,12 +22,18 @@ def get_fitted_parameters_df(model_type: str, state: dict) -> pd.DataFrame:
         if state.get("fitted_eps3") is not None:
             records.append({"Parameter": "eps3 (Cosolute 3 Free Energy Soft Interaction)",
                             "Value": state["fitted_eps3"], "Unit": "kJ/mol"})
+        if state.get("fitted_eps23") is not None:
+            records.append({"Parameter": "eps23 (Synergy Free Energy Soft Interaction)",
+                            "Value": state["fitted_eps23"], "Unit": "kJ/mol"})
         if state.get("fitted_epsTS2") is not None:
             records.append({"Parameter": "epsTS2 (Cosolute 2 Entropic Soft Interaction)",
                             "Value": state["fitted_epsTS2"], "Unit": "kJ/mol"})
         if state.get("fitted_epsTS3") is not None:
             records.append({"Parameter": "epsTS3 (Cosolute 3 Entropic Soft Interaction)",
                             "Value": state["fitted_epsTS3"], "Unit": "kJ/mol"})
+        if state.get("fitted_epsTS23") is not None:
+            records.append({"Parameter": "epsTS23 (Synergy Entropic Soft Interaction)",
+                            "Value": state["fitted_epsTS23"], "Unit": "kJ/mol"})
     return pd.DataFrame(records)
 
 

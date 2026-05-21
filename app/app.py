@@ -187,6 +187,7 @@ def load_binary_sample_callback() -> None:
         df = pd.read_csv(file_path)
         df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
         df = df.dropna(subset=["concentration"])
+        df.loc[df["concentration"] <= 0.0, "concentration"] = 0.0001
         
         st.session_state["exp_conc_G"] = df["concentration"].values
         st.session_state["exp_conc_T"] = df["concentration"].values
@@ -288,6 +289,8 @@ def load_ternary_sample_callback() -> None:
         df_G["conc3"] = pd.to_numeric(df_G["conc3"], errors='coerce')
         df_G["dG"] = pd.to_numeric(df_G["dG"], errors='coerce')
         df_G = df_G.dropna(subset=["conc2", "conc3", "dG"])
+        df_G.loc[df_G["conc2"] <= 0.0, "conc2"] = 0.0001
+        df_G.loc[df_G["conc3"] <= 0.0, "conc3"] = 0.0001
         
         st.session_state["exp_conc2"] = df_G["conc2"].values
         st.session_state["exp_conc3"] = df_G["conc3"].values
@@ -326,6 +329,8 @@ def load_ternary_sample_callback() -> None:
             df_H["conc3"] = pd.to_numeric(df_H["conc3"], errors='coerce')
             df_H["dH"] = pd.to_numeric(df_H["dH"], errors='coerce')
             df_H = df_H.dropna(subset=["conc2", "conc3", "dH"])
+            df_H.loc[df_H["conc2"] <= 0.0, "conc2"] = 0.0001
+            df_H.loc[df_H["conc3"] <= 0.0, "conc3"] = 0.0001
             st.session_state["raw_exp_val_H"] = df_H["dH"].values
             st.session_state["exp_val_H"] = df_H["dH"].values
         except Exception:
@@ -337,6 +342,8 @@ def load_ternary_sample_callback() -> None:
             df_S["conc3"] = pd.to_numeric(df_S["conc3"], errors='coerce')
             df_S["TdS"] = pd.to_numeric(df_S["TdS"], errors='coerce')
             df_S = df_S.dropna(subset=["conc2", "conc3", "TdS"])
+            df_S.loc[df_S["conc2"] <= 0.0, "conc2"] = 0.0001
+            df_S.loc[df_S["conc3"] <= 0.0, "conc3"] = 0.0001
             st.session_state["raw_exp_val_S"] = df_S["TdS"].values
             st.session_state["exp_val_S"] = df_S["TdS"].values
         except Exception:
@@ -444,11 +451,11 @@ _defaults = {
     
     # ternary cosolute 2
     "nu2":       1.0,  "chi12":     0.1,  "chiTS12":    -0.05,
-    "tern_dphi2": 0.001, "tern_phi2_max": 0.15,
+    "tern_dphi2": 0.001, "tern_phi2_max": 0.2,
     
     # ternary cosolute 3
     "nu3":       1.0,  "chi13":     0.1,  "chiTS13":    -0.05,
-    "tern_dphi3": 0.001, "tern_phi3_max": 0.15,
+    "tern_dphi3": 0.001, "tern_phi3_max": 0.2,
     
     # ternary cross-interaction
     "chi23":     0.0,  "chiTS23":   0.0,
@@ -471,7 +478,8 @@ _defaults = {
     
     # fitted parameters tracker (to persist fitted parameters to sidebar input values)
     "fitted_eps": None, "fitted_epsTS": None,
-    "fitted_eps2": None, "fitted_eps3": None, "fitted_epsTS2": None, "fitted_epsTS3": None,
+    "fitted_eps2": None, "fitted_eps3": None, "fitted_eps23": None,
+    "fitted_epsTS2": None, "fitted_epsTS3": None, "fitted_epsTS23": None,
     "fit_updated": False,
     "fit_success_msg": None,
     "fit_warning_msg": None
@@ -491,10 +499,14 @@ if st.session_state.get("fit_updated"):
         st.session_state["tern_eps2_input"] = st.session_state["fitted_eps2"]
     if st.session_state.get("fitted_eps3") is not None:
         st.session_state["tern_eps3_input"] = st.session_state["fitted_eps3"]
+    if st.session_state.get("fitted_eps23") is not None:
+        st.session_state["eps23"] = st.session_state["fitted_eps23"]
     if st.session_state.get("fitted_epsTS2") is not None:
         st.session_state["tern_epsts2_input"] = st.session_state["fitted_epsTS2"]
     if st.session_state.get("fitted_epsTS3") is not None:
         st.session_state["tern_epsts3_input"] = st.session_state["fitted_epsTS3"]
+    if st.session_state.get("fitted_epsTS23") is not None:
+        st.session_state["epsTS23"] = st.session_state["fitted_epsTS23"]
     st.session_state["fit_updated"] = False
 
 
@@ -516,6 +528,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 styles.workflow_banner()
+
+st.sidebar.markdown(
+    """
+    <div style="margin-top:1.0rem;">
+      <h2 style="font-size:1.1rem; font-weight:600; color:#2C3E50;">Model Parameters</h2>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.sidebar.markdown(
     '<p style="font-size:0.78rem; color:#5D7A8A; font-weight:600; '
@@ -595,8 +616,10 @@ if current_tern_sample != st.session_state["last_tern_sample"]:
     st.session_state["fit_warning_msg"] = None
     st.session_state["fitted_eps2"] = None
     st.session_state["fitted_eps3"] = None
+    st.session_state["fitted_eps23"] = None
     st.session_state["fitted_epsTS2"] = None
     st.session_state["fitted_epsTS3"] = None
+    st.session_state["fitted_epsTS23"] = None
 
 if model_type != st.session_state["last_model_type"]:
     st.session_state["last_model_type"] = model_type
@@ -647,6 +670,7 @@ if model_type == "Binary Crowding Model":
         "Δϕᶜ (grid step)",
         min_value=1e-5,
         max_value=0.05,
+        value=st.session_state["bin_dphiC"],
         step=0.0005,
         format="%.5f",
         key="bin_dphiC",
@@ -657,6 +681,7 @@ if model_type == "Binary Crowding Model":
         "ϕᶜ max",
         min_value=0.001,
         max_value=1.0,
+        value=st.session_state["bin_phiC_max"],
         step=0.01,
         format="%.3f",
         key="bin_phiC_max",
@@ -747,6 +772,7 @@ else:
         "Δϕ₂ (grid step)",
         min_value=1e-5,
         max_value=0.05,
+        value=st.session_state["tern_dphi2"],
         step=0.0005,
         format="%.5f",
         key="tern_dphi2",
@@ -756,6 +782,7 @@ else:
         "Δϕ₃ (grid step)",
         min_value=1e-5,
         max_value=0.05,
+        value=st.session_state["tern_dphi3"],
         step=0.0005,
         format="%.5f",
         key="tern_dphi3",
@@ -765,19 +792,21 @@ else:
         "ϕ₂ max",
         min_value=0.001,
         max_value=1.0,
+        value=st.session_state["tern_phi2_max"],
         step=0.01,
         format="%.3f",
         key="tern_phi2_max",
-        help="Maximum volume fraction of cosolute 2. Default: 0.15.",
+        help="Maximum volume fraction of cosolute 2. Default: 0.2.",
     )
     phi3_max = st.sidebar.number_input(
         "ϕ₃ max",
         min_value=0.001,
         max_value=1.0,
+        value=st.session_state["tern_phi3_max"],
         step=0.01,
         format="%.3f",
         key="tern_phi3_max",
-        help="Maximum volume fraction of cosolute 3. Default: 0.15.",
+        help="Maximum volume fraction of cosolute 3. Default: 0.2.",
     )
 
     cosolutes = fh_crowding.CosoluteMixture(
@@ -911,6 +940,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             else:
                                 df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
                                 df = df.dropna(subset=["concentration"])
+                                df.loc[df["concentration"] <= 0.0, "concentration"] = 0.0001
                                 
                                 st.session_state["exp_conc_G"] = df["concentration"].values
                                 st.session_state["exp_conc_T"] = df["concentration"].values
@@ -973,6 +1003,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
                             df["dG"] = pd.to_numeric(df["dG"], errors='coerce')
                             df = df.dropna(subset=["concentration", "dG"])
+                            df.loc[df["concentration"] <= 0.0, "concentration"] = 0.0001
                             st.session_state["exp_conc_G"] = df["concentration"].values
                             st.session_state["raw_exp_ddG"] = df["dG"].values
                             st.session_state["exp_ddG"] = df["dG"].values * energy_mult
@@ -992,6 +1023,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
                             df["dH"] = pd.to_numeric(df["dH"], errors='coerce')
                             df = df.dropna(subset=["concentration", "dH"])
+                            df.loc[df["concentration"] <= 0.0, "concentration"] = 0.0001
                             st.session_state["exp_conc_T"] = df["concentration"].values
                             st.session_state["raw_exp_ddH"] = df["dH"].values
                             st.session_state["exp_ddH"] = df["dH"].values * energy_mult
@@ -1011,6 +1043,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
                             df["TdS"] = pd.to_numeric(df["TdS"], errors='coerce')
                             df = df.dropna(subset=["concentration", "TdS"])
+                            df.loc[df["concentration"] <= 0.0, "concentration"] = 0.0001
                             st.session_state["exp_conc_T"] = df["concentration"].values
                             st.session_state["raw_exp_TddS"] = df["TdS"].values
                             st.session_state["exp_TddS"] = df["TdS"].values * energy_mult
@@ -1047,6 +1080,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
                             df["dG"] = pd.to_numeric(df["dG"], errors='coerce')
                             df = df.dropna(subset=["conc2", "conc3", "dG"])
+                            df.loc[df["conc2"] <= 0.0, "conc2"] = 0.0001
+                            df.loc[df["conc3"] <= 0.0, "conc3"] = 0.0001
                             st.session_state["exp_conc2"] = df["conc2"].values
                             st.session_state["exp_conc3"] = df["conc3"].values
                             st.session_state["raw_exp_val_G"] = df["dG"].values
@@ -1065,6 +1100,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
                             df["dH"] = pd.to_numeric(df["dH"], errors='coerce')
                             df = df.dropna(subset=["conc2", "conc3", "dH"])
+                            df.loc[df["conc2"] <= 0.0, "conc2"] = 0.0001
+                            df.loc[df["conc3"] <= 0.0, "conc3"] = 0.0001
                             st.session_state["exp_conc2"] = df["conc2"].values
                             st.session_state["exp_conc3"] = df["conc3"].values
                             st.session_state["raw_exp_val_H"] = df["dH"].values
@@ -1083,6 +1120,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
                             df["TdS"] = pd.to_numeric(df["TdS"], errors='coerce')
                             df = df.dropna(subset=["conc2", "conc3", "TdS"])
+                            df.loc[df["conc2"] <= 0.0, "conc2"] = 0.0001
+                            df.loc[df["conc3"] <= 0.0, "conc3"] = 0.0001
                             st.session_state["exp_conc2"] = df["conc2"].values
                             st.session_state["exp_conc3"] = df["conc3"].values
                             st.session_state["raw_exp_val_S"] = df["TdS"].values
@@ -1301,44 +1340,146 @@ with col_fit:
         else:
             col_t1, col_t2 = st.columns(2)
             
-            # Button 1: Fit eps
+            # Column 1: Fit eps
             with col_t1:
                 st.markdown("**Free Energy Soft Parameters**")
-                fit_eps_btn_tern = st.button("Fit eps2 & eps3 (from dG)", key="btn_fit_eps_tern", use_container_width=True)
-                if fit_eps_btn_tern:
+                
+                # Fit eps2
+                fit_eps2_btn = st.button("Fit ε₂ (phi3 = 0)", key="btn_fit_eps2", use_container_width=True)
+                if fit_eps2_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2") is not None and 
                         st.session_state.get("exp_conc3") is not None):
-                        fit_progress = st.progress(0, text="Fitting eps2 & eps3...")
+                        fit_progress = st.progress(0, text="Fitting eps2 (where phi3 = 0)...")
                         try:
-                            # Filter NaNs
+                            conc2 = np.array(st.session_state["exp_conc2"])
+                            conc3 = np.array(st.session_state["exp_conc3"])
+                            val_G = np.array(st.session_state["exp_val_G"])
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc3 <= 0.00011)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dG data points with phi3 = 0 to fit eps2.")
+                            
+                            model.fit_eps(
+                                conc2[valid_idx],
+                                conc3[valid_idx],
+                                val_G[valid_idx],
+                                concentration_type=fit_conc_type,
+                                fit_eps2=True,
+                                fit_eps3=False,
+                                fit_eps23=False
+                            )
+                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps2 parameter...")
+                            model.solve_equil(print_msg=False)
+                            model.to_pandas()
+                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
+                            
+                            st.session_state["fitted_eps2"] = model.eps2
+                            st.session_state["fit_updated"] = True
+                            st.session_state["solved_model"] = model
+                            st.session_state["solved_model_type"] = model_type
+                            st.session_state["fit_success_msg"] = f"Successfully fitted eps2: {model.eps2:.4f}"
+                            if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
+                                msg = getattr(model.res, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Fitting error: {e}")
+                    else:
+                        st.error("Please upload experimental Ternary dG data first!")
+                
+                # Fit eps3
+                fit_eps3_btn = st.button("Fit ε₃ (phi2 = 0)", key="btn_fit_eps3", use_container_width=True)
+                if fit_eps3_btn:
+                    if (st.session_state.get("exp_val_G") is not None and 
+                        st.session_state.get("exp_conc2") is not None and 
+                        st.session_state.get("exp_conc3") is not None):
+                        fit_progress = st.progress(0, text="Fitting eps3 (where phi2 = 0)...")
+                        try:
+                            conc2 = np.array(st.session_state["exp_conc2"])
+                            conc3 = np.array(st.session_state["exp_conc3"])
+                            val_G = np.array(st.session_state["exp_val_G"])
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc2 <= 0.00011)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dG data points with phi2 = 0 to fit eps3.")
+                            
+                            model.fit_eps(
+                                conc2[valid_idx],
+                                conc3[valid_idx],
+                                val_G[valid_idx],
+                                concentration_type=fit_conc_type,
+                                fit_eps2=False,
+                                fit_eps3=True,
+                                fit_eps23=False
+                            )
+                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps3 parameter...")
+                            model.solve_equil(print_msg=False)
+                            model.to_pandas()
+                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
+                            
+                            st.session_state["fitted_eps3"] = model.eps3
+                            st.session_state["fit_updated"] = True
+                            st.session_state["solved_model"] = model
+                            st.session_state["solved_model_type"] = model_type
+                            st.session_state["fit_success_msg"] = f"Successfully fitted eps3: {model.eps3:.4f}"
+                            if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
+                                msg = getattr(model.res, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Fitting error: {e}")
+                    else:
+                        st.error("Please upload experimental Ternary dG data first!")
+
+                # Fit eps23
+                eps23_enabled = (st.session_state.get("fitted_eps2") is not None and 
+                                 st.session_state.get("fitted_eps3") is not None)
+                fit_eps23_btn = st.button(
+                    "Fit ε₂₃ (All data)", 
+                    key="btn_fit_eps23", 
+                    use_container_width=True,
+                    disabled=not eps23_enabled,
+                    help="Only active after ε₂ and ε₃ are successfully fitted."
+                )
+                if fit_eps23_btn:
+                    if (st.session_state.get("exp_val_G") is not None and 
+                        st.session_state.get("exp_conc2") is not None and 
+                        st.session_state.get("exp_conc3") is not None):
+                        fit_progress = st.progress(0, text="Fitting eps23 (using all data)...")
+                        try:
                             conc2 = np.array(st.session_state["exp_conc2"])
                             conc3 = np.array(st.session_state["exp_conc3"])
                             val_G = np.array(st.session_state["exp_val_G"])
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dG data points to fit.")
-                            # Run fit
+                                raise ValueError("No valid non-NaN experimental dG data points to fit eps23.")
+                            
+                            # Keep previously fitted eps2 and eps3 constant
+                            model.eps2 = st.session_state["fitted_eps2"]
+                            model.eps3 = st.session_state["fitted_eps3"]
+                            
                             model.fit_eps(
                                 conc2[valid_idx],
                                 conc3[valid_idx],
                                 val_G[valid_idx],
-                                concentration_type=fit_conc_type
+                                concentration_type=fit_conc_type,
+                                fit_eps2=False,
+                                fit_eps3=False,
+                                fit_eps23=True
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps parameters...")
-                            # Resolve model
+                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps23 synergy parameter...")
                             model.solve_equil(print_msg=False)
                             model.to_pandas()
                             fit_progress.progress(1.0, text="Fit & Simulation updated!")
                             
-                            # Save state
-                            st.session_state["fitted_eps2"] = model.eps2
-                            st.session_state["fitted_eps3"] = model.eps3
+                            st.session_state["fitted_eps23"] = model.eps23
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
-                            
-                            st.session_state["fit_success_msg"] = f"Successfully fitted eps2: {model.eps2:.4f}, eps3: {model.eps3:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted eps23: {model.eps23:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1350,47 +1491,155 @@ with col_fit:
                     else:
                         st.error("Please upload experimental Ternary dG data first!")
             
-            # Button 2: Fit epsTS
+            # Column 2: Fit epsTS
             with col_t2:
                 st.markdown("**Entropic Soft Parameters**")
-                fit_epsts_btn_tern = st.button("Fit epsTS2 & epsTS3 (from dH, TdS)", key="btn_fit_epsts_tern", use_container_width=True)
-                if fit_epsts_btn_tern:
+                
+                # Fit epsTS2
+                fit_epsts2_btn = st.button("Fit εₜₛ₂ (phi3 = 0)", key="btn_fit_epsts2", use_container_width=True)
+                if fit_epsts2_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
                         st.session_state.get("exp_conc2") is not None and 
                         st.session_state.get("exp_conc3") is not None):
-                        fit_progress = st.progress(0, text="Fitting epsTS2 & epsTS3...")
+                        fit_progress = st.progress(0, text="Fitting epsTS2 (where phi3 = 0)...")
                         try:
-                            # Filter NaNs
+                            conc2 = np.array(st.session_state["exp_conc2"])
+                            conc3 = np.array(st.session_state["exp_conc3"])
+                            val_H = np.array(st.session_state["exp_val_H"])
+                            val_S = np.array(st.session_state["exp_val_S"])
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc3 <= 0.00011)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi3 = 0 to fit epsTS2.")
+                            
+                            model.fit_epsTS(
+                                conc2[valid_idx],
+                                conc3[valid_idx],
+                                val_H[valid_idx],
+                                val_S[valid_idx],
+                                concentration_type=fit_conc_type,
+                                fit_epsTS2=True,
+                                fit_epsTS3=False,
+                                fit_epsTS23=False
+                            )
+                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS2 parameter...")
+                            model.solve_equil(print_msg=False)
+                            model.to_pandas()
+                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
+                            
+                            st.session_state["fitted_epsTS2"] = model.epsTS2
+                            st.session_state["fit_updated"] = True
+                            st.session_state["solved_model"] = model
+                            st.session_state["solved_model_type"] = model_type
+                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS2: {model.epsTS2:.4f}"
+                            if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
+                                msg = getattr(model.resTS, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Fitting error: {e}")
+                    else:
+                        st.error("Please upload experimental Ternary dH and TdS data first!")
+
+                # Fit epsTS3
+                fit_epsts3_btn = st.button("Fit εₜₛ₃ (phi2 = 0)", key="btn_fit_epsts3", use_container_width=True)
+                if fit_epsts3_btn:
+                    if (st.session_state.get("exp_val_H") is not None and 
+                        st.session_state.get("exp_val_S") is not None and 
+                        st.session_state.get("exp_conc2") is not None and 
+                        st.session_state.get("exp_conc3") is not None):
+                        fit_progress = st.progress(0, text="Fitting epsTS3 (where phi2 = 0)...")
+                        try:
+                            conc2 = np.array(st.session_state["exp_conc2"])
+                            conc3 = np.array(st.session_state["exp_conc3"])
+                            val_H = np.array(st.session_state["exp_val_H"])
+                            val_S = np.array(st.session_state["exp_val_S"])
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc2 <= 0.00011)
+                            if not np.any(valid_idx):
+                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi2 = 0 to fit epsTS3.")
+                            
+                            model.fit_epsTS(
+                                conc2[valid_idx],
+                                conc3[valid_idx],
+                                val_H[valid_idx],
+                                val_S[valid_idx],
+                                concentration_type=fit_conc_type,
+                                fit_epsTS2=False,
+                                fit_epsTS3=True,
+                                fit_epsTS23=False
+                            )
+                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS3 parameter...")
+                            model.solve_equil(print_msg=False)
+                            model.to_pandas()
+                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
+                            
+                            st.session_state["fitted_epsTS3"] = model.epsTS3
+                            st.session_state["fit_updated"] = True
+                            st.session_state["solved_model"] = model
+                            st.session_state["solved_model_type"] = model_type
+                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS3: {model.epsTS3:.4f}"
+                            if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
+                                msg = getattr(model.resTS, "message", "Optimizer did not converge.")
+                                st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
+                            else:
+                                st.session_state["fit_warning_msg"] = None
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Fitting error: {e}")
+                    else:
+                        st.error("Please upload experimental Ternary dH and TdS data first!")
+
+                # Fit epsTS23
+                epsts23_enabled = (st.session_state.get("fitted_epsTS2") is not None and 
+                                   st.session_state.get("fitted_epsTS3") is not None)
+                fit_epsts23_btn = st.button(
+                    "Fit εₜₛ₂₃ (All data)", 
+                    key="btn_fit_epsts23", 
+                    use_container_width=True,
+                    disabled=not epsts23_enabled,
+                    help="Only active after εₜₛ₂ and εₜₛ₃ are successfully fitted."
+                )
+                if fit_epsts23_btn:
+                    if (st.session_state.get("exp_val_H") is not None and 
+                        st.session_state.get("exp_val_S") is not None and 
+                        st.session_state.get("exp_conc2") is not None and 
+                        st.session_state.get("exp_conc3") is not None):
+                        fit_progress = st.progress(0, text="Fitting epsTS23 (using all data)...")
+                        try:
                             conc2 = np.array(st.session_state["exp_conc2"])
                             conc3 = np.array(st.session_state["exp_conc3"])
                             val_H = np.array(st.session_state["exp_val_H"])
                             val_S = np.array(st.session_state["exp_val_S"])
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dH/TdS data points to fit.")
-                            # Run fit
+                                raise ValueError("No valid non-NaN experimental dH/TdS data points to fit epsTS23.")
+                            
+                            # Keep previously fitted epsTS2 and epsTS3 constant
+                            model.epsTS2 = st.session_state["fitted_epsTS2"]
+                            model.epsTS3 = st.session_state["fitted_epsTS3"]
+                            
                             model.fit_epsTS(
                                 conc2[valid_idx],
                                 conc3[valid_idx],
                                 val_H[valid_idx],
                                 val_S[valid_idx],
-                                concentration_type=fit_conc_type
+                                concentration_type=fit_conc_type,
+                                fit_epsTS2=False,
+                                fit_epsTS3=False,
+                                fit_epsTS23=True
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS parameters...")
-                            # Resolve model
+                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS23 synergy parameter...")
                             model.solve_equil(print_msg=False)
                             model.to_pandas()
                             fit_progress.progress(1.0, text="Fit & Simulation updated!")
                             
-                            # Save state
-                            st.session_state["fitted_epsTS2"] = model.epsTS2
-                            st.session_state["fitted_epsTS3"] = model.epsTS3
+                            st.session_state["fitted_epsTS23"] = model.epsTS23
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
-                            
-                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS2: {model.epsTS2:.4f}, epsTS3: {model.epsTS3:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS23: {model.epsTS23:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1408,25 +1657,31 @@ with col_fit:
             with col_m1:
                 eps2_val = f"{model.eps2:.4f}" if st.session_state["fitted_eps2"] is not None else "—"
                 eps3_val = f"{model.eps3:.4f}" if st.session_state["fitted_eps3"] is not None else "—"
+                eps23_val = f"{model.eps23:.4f}" if st.session_state["fitted_eps23"] is not None else "—"
                 st.markdown(
                     styles.param_card("ε₂", eps2_val, "Cosolute 2 soft interaction") +
-                    styles.param_card("ε₃", eps3_val, "Cosolute 3 soft interaction"),
+                    styles.param_card("ε₃", eps3_val, "Cosolute 3 soft interaction") +
+                    styles.param_card("ε₂₃ (synergy)", eps23_val, "Soft interaction synergy coupling"),
                     unsafe_allow_html=True
                 )
             with col_m2:
                 epsts2_val = f"{model.epsTS2:.4f}" if st.session_state["fitted_epsTS2"] is not None else "—"
                 epsts3_val = f"{model.epsTS3:.4f}" if st.session_state["fitted_epsTS3"] is not None else "—"
+                epsts23_val = f"{model.epsTS23:.4f}" if st.session_state["fitted_epsTS23"] is not None else "—"
                 st.markdown(
                     styles.param_card("εₜₛ₂", epsts2_val, "Cosolute 2 entropy component") +
-                    styles.param_card("εₜₛ₃", epsts3_val, "Cosolute 3 entropy component"),
+                    styles.param_card("εₜₛ₃", epsts3_val, "Cosolute 3 entropy component") +
+                    styles.param_card("εₜₛ₂₃ (synergy)", epsts23_val, "Entropy synergy coupling"),
                     unsafe_allow_html=True
                 )
                 
             # Download fitted parameters button
             has_fit = (st.session_state["fitted_eps2"] is not None or 
                        st.session_state["fitted_eps3"] is not None or 
+                       st.session_state["fitted_eps23"] is not None or 
                        st.session_state["fitted_epsTS2"] is not None or 
-                       st.session_state["fitted_epsTS3"] is not None)
+                       st.session_state["fitted_epsTS3"] is not None or 
+                       st.session_state["fitted_epsTS23"] is not None)
             if has_fit:
                 fit_csv = export.get_fitted_parameters_csv(model_type, st.session_state)
                 st.download_button(
