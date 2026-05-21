@@ -134,6 +134,10 @@ def serialize_session_state() -> str:
             
             "exp_conc2": _to_serializable(state.get("exp_conc2")),
             "exp_conc3": _to_serializable(state.get("exp_conc3")),
+            "exp_conc2_G": _to_serializable(state.get("exp_conc2_G")),
+            "exp_conc3_G": _to_serializable(state.get("exp_conc3_G")),
+            "exp_conc2_T": _to_serializable(state.get("exp_conc2_T")),
+            "exp_conc3_T": _to_serializable(state.get("exp_conc3_T")),
             "exp_val_G": _to_serializable(state.get("exp_val_G")),
             "exp_val_H": _to_serializable(state.get("exp_val_H")),
             "exp_val_S": _to_serializable(state.get("exp_val_S")),
@@ -322,6 +326,23 @@ def apply_session_payload(payload: dict) -> None:
     state["bin_sample_select"] = exp_data.get("bin_sample_select", "None")
     state["tern_sample_select"] = exp_data.get("tern_sample_select", "None")
     
+    # Initialize all experimental data keys to None to prevent stale session leakage
+    keys_to_clear = [
+        "exp_conc_G", "exp_ddG", "err_ddG",
+        "exp_conc_T", "exp_ddH", "err_ddH",
+        "exp_TddS", "err_TddS",
+        "exp_conc2", "exp_conc3",
+        "exp_conc2_G", "exp_conc3_G",
+        "exp_conc2_T", "exp_conc3_T",
+        "exp_val_G", "exp_val_H", "exp_val_S",
+        "raw_exp_ddG", "raw_err_ddG",
+        "raw_exp_ddH", "raw_err_ddH",
+        "raw_exp_TddS", "raw_err_TddS",
+        "raw_exp_val_G", "raw_exp_val_H", "raw_exp_val_S"
+    ]
+    for key in keys_to_clear:
+        state[key] = None
+        
     data_dict = exp_data.get("data", {})
     for array_key, array_val in data_dict.items():
         if array_val is not None:
@@ -330,6 +351,30 @@ def apply_session_payload(payload: dict) -> None:
             state[array_key] = np.array(cleaned)
         else:
             state[array_key] = None
+
+    # Backward compatibility fallback
+    if state.get("exp_conc2") is not None:
+        if state.get("exp_conc2_G") is None:
+            val_g = state.get("exp_val_G")
+            if val_g is None or len(val_g) == len(state["exp_conc2"]):
+                state["exp_conc2_G"] = state["exp_conc2"].copy() if isinstance(state["exp_conc2"], np.ndarray) else state["exp_conc2"]
+        if state.get("exp_conc2_T") is None:
+            val_h = state.get("exp_val_H")
+            val_s = state.get("exp_val_S")
+            target_len = len(val_h) if val_h is not None else (len(val_s) if val_s is not None else None)
+            if target_len is None or target_len == len(state["exp_conc2"]):
+                state["exp_conc2_T"] = state["exp_conc2"].copy() if isinstance(state["exp_conc2"], np.ndarray) else state["exp_conc2"]
+    if state.get("exp_conc3") is not None:
+        if state.get("exp_conc3_G") is None:
+            val_g = state.get("exp_val_G")
+            if val_g is None or len(val_g) == len(state["exp_conc3"]):
+                state["exp_conc3_G"] = state["exp_conc3"].copy() if isinstance(state["exp_conc3"], np.ndarray) else state["exp_conc3"]
+        if state.get("exp_conc3_T") is None:
+            val_h = state.get("exp_val_H")
+            val_s = state.get("exp_val_S")
+            target_len = len(val_h) if val_h is not None else (len(val_s) if val_s is not None else None)
+            if target_len is None or target_len == len(state["exp_conc3"]):
+                state["exp_conc3_T"] = state["exp_conc3"].copy() if isinstance(state["exp_conc3"], np.ndarray) else state["exp_conc3"]
             
     # Set run flag so the app solves equilibrium after rerun
     state["session_restored"] = True

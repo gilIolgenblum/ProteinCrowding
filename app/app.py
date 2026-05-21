@@ -260,6 +260,10 @@ def load_ternary_sample_callback() -> None:
         st.session_state["exp_data_loaded"] = False
         st.session_state["exp_conc2"] = None
         st.session_state["exp_conc3"] = None
+        st.session_state["exp_conc2_G"] = None
+        st.session_state["exp_conc3_G"] = None
+        st.session_state["exp_conc2_T"] = None
+        st.session_state["exp_conc3_T"] = None
         st.session_state["exp_val_G"] = None
         st.session_state["exp_val_H"] = None
         st.session_state["exp_val_S"] = None
@@ -294,6 +298,8 @@ def load_ternary_sample_callback() -> None:
         
         st.session_state["exp_conc2"] = df_G["conc2"].values
         st.session_state["exp_conc3"] = df_G["conc3"].values
+        st.session_state["exp_conc2_G"] = df_G["conc2"].values
+        st.session_state["exp_conc3_G"] = df_G["conc3"].values
         st.session_state["raw_exp_val_G"] = df_G["dG"].values
         st.session_state["exp_val_G"] = df_G["dG"].values
         st.session_state["exp_data_loaded"] = True
@@ -333,6 +339,8 @@ def load_ternary_sample_callback() -> None:
             df_H.loc[df_H["conc3"] <= 0.0, "conc3"] = 0.0001
             st.session_state["raw_exp_val_H"] = df_H["dH"].values
             st.session_state["exp_val_H"] = df_H["dH"].values
+            st.session_state["exp_conc2_T"] = df_H["conc2"].values
+            st.session_state["exp_conc3_T"] = df_H["conc3"].values
         except Exception:
             pass
             
@@ -346,6 +354,9 @@ def load_ternary_sample_callback() -> None:
             df_S.loc[df_S["conc3"] <= 0.0, "conc3"] = 0.0001
             st.session_state["raw_exp_val_S"] = df_S["TdS"].values
             st.session_state["exp_val_S"] = df_S["TdS"].values
+            if st.session_state.get("exp_conc2_T") is None:
+                st.session_state["exp_conc2_T"] = df_S["conc2"].values
+                st.session_state["exp_conc3_T"] = df_S["conc3"].values
         except Exception:
             pass
             
@@ -464,7 +475,10 @@ _defaults = {
     # experimental data keys
     "exp_conc_G": None, "exp_ddG": None, "err_ddG": None,
     "exp_conc_T": None, "exp_ddH": None, "exp_TddS": None, "err_ddH": None, "err_TddS": None,
-    "exp_conc2": None, "exp_conc3": None, "exp_val_G": None, "exp_val_H": None, "exp_val_S": None,
+    "exp_conc2": None, "exp_conc3": None,
+    "exp_conc2_G": None, "exp_conc3_G": None,
+    "exp_conc2_T": None, "exp_conc3_T": None,
+    "exp_val_G": None, "exp_val_H": None, "exp_val_S": None,
     "raw_exp_ddG": None, "raw_err_ddG": None,
     "raw_exp_ddH": None, "raw_err_ddH": None,
     "raw_exp_TddS": None, "raw_err_TddS": None,
@@ -1084,6 +1098,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df.loc[df["conc3"] <= 0.0, "conc3"] = 0.0001
                             st.session_state["exp_conc2"] = df["conc2"].values
                             st.session_state["exp_conc3"] = df["conc3"].values
+                            st.session_state["exp_conc2_G"] = df["conc2"].values
+                            st.session_state["exp_conc3_G"] = df["conc3"].values
                             st.session_state["raw_exp_val_G"] = df["dG"].values
                             st.session_state["exp_val_G"] = df["dG"].values * energy_mult
                             st.session_state["exp_data_loaded"] = True
@@ -1104,6 +1120,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df.loc[df["conc3"] <= 0.0, "conc3"] = 0.0001
                             st.session_state["exp_conc2"] = df["conc2"].values
                             st.session_state["exp_conc3"] = df["conc3"].values
+                            st.session_state["exp_conc2_T"] = df["conc2"].values
+                            st.session_state["exp_conc3_T"] = df["conc3"].values
                             st.session_state["raw_exp_val_H"] = df["dH"].values
                             st.session_state["exp_val_H"] = df["dH"].values * energy_mult
                             st.session_state["exp_data_loaded"] = True
@@ -1124,6 +1142,8 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             df.loc[df["conc3"] <= 0.0, "conc3"] = 0.0001
                             st.session_state["exp_conc2"] = df["conc2"].values
                             st.session_state["exp_conc3"] = df["conc3"].values
+                            st.session_state["exp_conc2_T"] = df["conc2"].values
+                            st.session_state["exp_conc3_T"] = df["conc3"].values
                             st.session_state["raw_exp_val_S"] = df["TdS"].values
                             st.session_state["exp_val_S"] = df["TdS"].values * energy_mult
                             st.session_state["exp_data_loaded"] = True
@@ -1348,16 +1368,18 @@ with col_fit:
                 fit_eps2_btn = st.button("Fit ε₂ (phi3 = 0)", key="btn_fit_eps2", use_container_width=True)
                 if fit_eps2_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
-                        st.session_state.get("exp_conc2") is not None and 
-                        st.session_state.get("exp_conc3") is not None):
+                        st.session_state.get("exp_conc2_G") is not None and 
+                        st.session_state.get("exp_conc3_G") is not None):
                         fit_progress = st.progress(0, text="Fitting eps2 (where phi3 = 0)...")
                         try:
-                            conc2 = np.array(st.session_state["exp_conc2"])
-                            conc3 = np.array(st.session_state["exp_conc3"])
+                            conc2 = np.array(st.session_state["exp_conc2_G"])
+                            conc3 = np.array(st.session_state["exp_conc3_G"])
                             val_G = np.array(st.session_state["exp_val_G"])
-                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc3 <= 0.00011)
+                            if len(conc2) != len(val_G) or len(conc3) != len(val_G):
+                                raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, but dG has length {len(val_G)}.")
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc3 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dG data points with phi3 = 0 to fit eps2.")
+                                raise ValueError("No valid non-NaN experimental dG data points with phi3 <= 0.0011 to fit eps2.")
                             
                             model.fit_eps(
                                 conc2[valid_idx],
@@ -1393,16 +1415,18 @@ with col_fit:
                 fit_eps3_btn = st.button("Fit ε₃ (phi2 = 0)", key="btn_fit_eps3", use_container_width=True)
                 if fit_eps3_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
-                        st.session_state.get("exp_conc2") is not None and 
-                        st.session_state.get("exp_conc3") is not None):
+                        st.session_state.get("exp_conc2_G") is not None and 
+                        st.session_state.get("exp_conc3_G") is not None):
                         fit_progress = st.progress(0, text="Fitting eps3 (where phi2 = 0)...")
                         try:
-                            conc2 = np.array(st.session_state["exp_conc2"])
-                            conc3 = np.array(st.session_state["exp_conc3"])
+                            conc2 = np.array(st.session_state["exp_conc2_G"])
+                            conc3 = np.array(st.session_state["exp_conc3_G"])
                             val_G = np.array(st.session_state["exp_val_G"])
-                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc2 <= 0.00011)
+                            if len(conc2) != len(val_G) or len(conc3) != len(val_G):
+                                raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, but dG has length {len(val_G)}.")
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc2 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dG data points with phi2 = 0 to fit eps3.")
+                                raise ValueError("No valid non-NaN experimental dG data points with phi2 <= 0.0011 to fit eps3.")
                             
                             model.fit_eps(
                                 conc2[valid_idx],
@@ -1433,7 +1457,7 @@ with col_fit:
                             st.error(f"Fitting error: {e}")
                     else:
                         st.error("Please upload experimental Ternary dG data first!")
-
+ 
                 # Fit eps23
                 eps23_enabled = (st.session_state.get("fitted_eps2") is not None and 
                                  st.session_state.get("fitted_eps3") is not None)
@@ -1446,13 +1470,15 @@ with col_fit:
                 )
                 if fit_eps23_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
-                        st.session_state.get("exp_conc2") is not None and 
-                        st.session_state.get("exp_conc3") is not None):
+                        st.session_state.get("exp_conc2_G") is not None and 
+                        st.session_state.get("exp_conc3_G") is not None):
                         fit_progress = st.progress(0, text="Fitting eps23 (using all data)...")
                         try:
-                            conc2 = np.array(st.session_state["exp_conc2"])
-                            conc3 = np.array(st.session_state["exp_conc3"])
+                            conc2 = np.array(st.session_state["exp_conc2_G"])
+                            conc3 = np.array(st.session_state["exp_conc3_G"])
                             val_G = np.array(st.session_state["exp_val_G"])
+                            if len(conc2) != len(val_G) or len(conc3) != len(val_G):
+                                raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, but dG has length {len(val_G)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G)
                             if not np.any(valid_idx):
                                 raise ValueError("No valid non-NaN experimental dG data points to fit eps23.")
@@ -1500,17 +1526,19 @@ with col_fit:
                 if fit_epsts2_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
-                        st.session_state.get("exp_conc2") is not None and 
-                        st.session_state.get("exp_conc3") is not None):
+                        st.session_state.get("exp_conc2_T") is not None and 
+                        st.session_state.get("exp_conc3_T") is not None):
                         fit_progress = st.progress(0, text="Fitting epsTS2 (where phi3 = 0)...")
                         try:
-                            conc2 = np.array(st.session_state["exp_conc2"])
-                            conc3 = np.array(st.session_state["exp_conc3"])
+                            conc2 = np.array(st.session_state["exp_conc2_T"])
+                            conc3 = np.array(st.session_state["exp_conc3_T"])
                             val_H = np.array(st.session_state["exp_val_H"])
                             val_S = np.array(st.session_state["exp_val_S"])
-                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc3 <= 0.00011)
+                            if len(conc2) != len(val_H) or len(conc3) != len(val_H) or len(val_S) != len(val_H):
+                                raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, dH has length {len(val_H)}, and TdS has length {len(val_S)}.")
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc3 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi3 = 0 to fit epsTS2.")
+                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi3 <= 0.0011 to fit epsTS2.")
                             
                             model.fit_epsTS(
                                 conc2[valid_idx],
@@ -1548,17 +1576,19 @@ with col_fit:
                 if fit_epsts3_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
-                        st.session_state.get("exp_conc2") is not None and 
-                        st.session_state.get("exp_conc3") is not None):
+                        st.session_state.get("exp_conc2_T") is not None and 
+                        st.session_state.get("exp_conc3_T") is not None):
                         fit_progress = st.progress(0, text="Fitting epsTS3 (where phi2 = 0)...")
                         try:
-                            conc2 = np.array(st.session_state["exp_conc2"])
-                            conc3 = np.array(st.session_state["exp_conc3"])
+                            conc2 = np.array(st.session_state["exp_conc2_T"])
+                            conc3 = np.array(st.session_state["exp_conc3_T"])
                             val_H = np.array(st.session_state["exp_val_H"])
                             val_S = np.array(st.session_state["exp_val_S"])
-                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc2 <= 0.00011)
+                            if len(conc2) != len(val_H) or len(conc3) != len(val_H) or len(val_S) != len(val_H):
+                                raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, dH has length {len(val_H)}, and TdS has length {len(val_S)}.")
+                            valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc2 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi2 = 0 to fit epsTS3.")
+                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi2 <= 0.0011 to fit epsTS3.")
                             
                             model.fit_epsTS(
                                 conc2[valid_idx],
@@ -1604,14 +1634,16 @@ with col_fit:
                 if fit_epsts23_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
-                        st.session_state.get("exp_conc2") is not None and 
-                        st.session_state.get("exp_conc3") is not None):
+                        st.session_state.get("exp_conc2_T") is not None and 
+                        st.session_state.get("exp_conc3_T") is not None):
                         fit_progress = st.progress(0, text="Fitting epsTS23 (using all data)...")
                         try:
-                            conc2 = np.array(st.session_state["exp_conc2"])
-                            conc3 = np.array(st.session_state["exp_conc3"])
+                            conc2 = np.array(st.session_state["exp_conc2_T"])
+                            conc3 = np.array(st.session_state["exp_conc3_T"])
                             val_H = np.array(st.session_state["exp_val_H"])
                             val_S = np.array(st.session_state["exp_val_S"])
+                            if len(conc2) != len(val_H) or len(conc3) != len(val_H) or len(val_S) != len(val_H):
+                                raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, dH has length {len(val_H)}, and TdS has length {len(val_S)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S)
                             if not np.any(valid_idx):
                                 raise ValueError("No valid non-NaN experimental dH/TdS data points to fit epsTS23.")
@@ -1806,17 +1838,22 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 fig = plotter.plot_Gamma_mu()
                 
             # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
+            # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
             is_fold_preset = any(p in preset_plot for p in ["ddG (3x3 contour)", "TddS", "ddH"])
-            if show_exp and is_fold_preset and st.session_state.get("exp_conc2") is not None:
-                # Convert exp points concentration to phi
-                exp_x_phi = convert_exp_conc(st.session_state["exp_conc2"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
-                exp_y_phi = convert_exp_conc(st.session_state["exp_conc3"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3"])
-                
-                # Iterate axes and scatter the experimental points
-                for ax in fig.get_axes():
-                    # only scatter on contour subplots (skip colorbar axes which have no set_xlabel or set_ylabel)
-                    if hasattr(ax, 'get_xlabel') and ax.get_xlabel() == r'$\phi_2$':
-                        ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=25, label='Experimental', zorder=10)
+            if show_exp and is_fold_preset:
+                is_G = "ddG" in preset_plot
+                c2_key = "exp_conc2_G" if is_G else "exp_conc2_T"
+                c3_key = "exp_conc3_G" if is_G else "exp_conc3_T"
+                if st.session_state.get(c2_key) is not None:
+                    # Convert exp points concentration to phi
+                    exp_x_phi = convert_exp_conc(st.session_state[c2_key], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
+                    exp_y_phi = convert_exp_conc(st.session_state[c3_key], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state[c3_key])
+                    
+                    # Iterate axes and scatter the experimental points
+                    for ax in fig.get_axes():
+                        # only scatter on contour subplots (skip colorbar axes which have no set_xlabel or set_ylabel)
+                        if hasattr(ax, 'get_xlabel') and ax.get_xlabel() == r'$\phi_2$':
+                            ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=25, label='Experimental', zorder=10)
                         
             try:
                 _display_and_export_plot(fig, "fh_crowding_ternary_preset_plot", "tern_preset_plot")
@@ -2057,7 +2094,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     plot_contrib = st.checkbox("Plot alongside contributions (nu, chi, eps)", value=True)
                     
                 if plot_contrib:
-                    fig, axes = plt.subplots(ncols=2, nrows=2, figsize=(9, 7), layout="constrained")
+                    from plotly.subplots import make_subplots
                     
                     if "ddG" in z_attr:
                         base = "ddG"
@@ -2068,62 +2105,116 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         
                     suffix = "_kJ" if "_kJ" in z_attr else ""
                     
-                    # Subplot 1: Total
+                    # Compute data
                     total_z = getattr(solved_model, f"{base}{suffix}")
-                    cp = axes[0,0].contourf(solved_model.phi2, solved_model.phi3, total_z, levels=12)
-                    axes[0,0].contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                    axes[0,0].set_title(f"Total {z_label}")
-                    fig.colorbar(cp, ax=axes[0,0])
+                    chi_z = getattr(solved_model, f"{base}_chi{suffix}")
+                    eps_z = getattr(solved_model, f"{base}_eps{suffix}")
+                    if base != "ddH":
+                        nu_z = getattr(solved_model, f"{base}_nu{suffix}")
+                    
+                    pfig = make_subplots(
+                        rows=2, cols=2,
+                        subplot_titles=(
+                            f"Total {z_label_unicode}",
+                            "ν (Excluded Volume) Contribution" if base != "ddH" else "No ν Contribution (Enthalpy)",
+                            "χ (Non-ideal mixing) Contribution",
+                            "ε (Soft interaction) Contribution"
+                        ),
+                        horizontal_spacing=0.15,
+                        vertical_spacing=0.15
+                    )
+                    
+                    # Subplot 1: Total
+                    pfig.add_trace(go.Contour(
+                        x=solved_model.phi2[0, :],
+                        y=solved_model.phi3[:, 0],
+                        z=total_z,
+                        colorscale=[[0, "#f8f9fa"], [1, styles.PLOT_TOTAL_COLOR]],
+                        hoverongaps=False,
+                        colorbar=dict(thickness=15, len=0.4, y=0.78, x=0.43, title=dict(text=z_label_unicode, font=dict(size=10))),
+                        hovertemplate="φ₂: %{x:.3f}<br>φ₃: %{y:.3f}<br>Value: %{z:.4f}<extra></extra>"
+                    ), row=1, col=1)
                     
                     # Subplot 2: nu
-                    if base == "ddH":
-                        axes[0,1].text(0.5, 0.5, "No Excluded Volume\n" + r"($\nu$)" + " contribution\nfor Enthalpy", 
-                                       ha='center', va='center', fontsize=12)
-                        axes[0,1].set_title(r"$\nu$ Contribution")
+                    if base != "ddH":
+                        pfig.add_trace(go.Contour(
+                            x=solved_model.phi2[0, :],
+                            y=solved_model.phi3[:, 0],
+                            z=nu_z,
+                            colorscale=[[0, "#f2f8fd"], [1, styles.PLOT_NU_COLOR]],
+                            colorbar=dict(thickness=15, len=0.4, y=0.78, x=1.02, title=dict(text="ν", font=dict(size=10))),
+                            hovertemplate="φ₂: %{x:.3f}<br>φ₃: %{y:.3f}<br>Value: %{z:.4f}<extra></extra>"
+                        ), row=1, col=2)
                     else:
-                        nu_z = getattr(solved_model, f"{base}_nu{suffix}")
-                        cp = axes[0,1].contourf(solved_model.phi2, solved_model.phi3, nu_z, levels=12)
-                        axes[0,1].contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                        axes[0,1].set_title(r"$\nu$ Contribution")
-                        fig.colorbar(cp, ax=axes[0,1])
+                        pfig.add_trace(go.Contour(
+                            x=solved_model.phi2[0, :],
+                            y=solved_model.phi3[:, 0],
+                            z=np.zeros_like(solved_model.phi2),
+                            colorscale=[[0, "#f2f8fd"], [1, styles.PLOT_NU_COLOR]],
+                            showscale=False,
+                            hovertemplate="φ₂: %{x:.3f}<br>φ₃: %{y:.3f}<br>Value: 0.0<extra></extra>"
+                        ), row=1, col=2)
                         
                     # Subplot 3: chi
-                    chi_z = getattr(solved_model, f"{base}_chi{suffix}")
-                    cp = axes[1,0].contourf(solved_model.phi2, solved_model.phi3, chi_z, levels=12)
-                    axes[1,0].contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                    axes[1,0].set_title(r"$\chi$ Contribution")
-                    fig.colorbar(cp, ax=axes[1,0])
+                    pfig.add_trace(go.Contour(
+                        x=solved_model.phi2[0, :],
+                        y=solved_model.phi3[:, 0],
+                        z=chi_z,
+                        colorscale=[[0, "#fdf6f3"], [1, styles.PLOT_CHI_COLOR]],
+                        colorbar=dict(thickness=15, len=0.4, y=0.22, x=0.43, title=dict(text="χ", font=dict(size=10))),
+                        hovertemplate="φ₂: %{x:.3f}<br>φ₃: %{y:.3f}<br>Value: %{z:.4f}<extra></extra>"
+                    ), row=2, col=1)
                     
                     # Subplot 4: eps
-                    eps_z = getattr(solved_model, f"{base}_eps{suffix}")
-                    cp = axes[1,1].contourf(solved_model.phi2, solved_model.phi3, eps_z, levels=12)
-                    axes[1,1].contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                    axes[1,1].set_title(r"$\varepsilon$ Contribution")
-                    fig.colorbar(cp, ax=axes[1,1])
+                    pfig.add_trace(go.Contour(
+                        x=solved_model.phi2[0, :],
+                        y=solved_model.phi3[:, 0],
+                        z=eps_z,
+                        colorscale=[[0, "#f5faf6"], [1, styles.PLOT_EPS_COLOR]],
+                        colorbar=dict(thickness=15, len=0.4, y=0.22, x=1.02, title=dict(text="ε", font=dict(size=10))),
+                        hovertemplate="φ₂: %{x:.3f}<br>φ₃: %{y:.3f}<br>Value: %{z:.4f}<extra></extra>"
+                    ), row=2, col=2)
                     
-                    # 2D contour: no experimental scatter overlays
-                    # (use the 3D Surface Plot mode to compare model vs. experimental data)
-                    for ax_row in axes:
-                        for ax in ax_row:
-                            ax.set_xlabel(r"$\phi_2$")
-                            ax.set_ylabel(r"$\phi_3$")
+                    pfig.update_layout(
+                        plot_bgcolor="white",
+                        paper_bgcolor="white",
+                        font=dict(family="Inter, DejaVu Sans", size=11),
+                        margin=dict(l=60, r=60, t=50, b=60),
+                        height=700,
+                    )
+                    for r in [1, 2]:
+                        for c in [1, 2]:
+                            pfig.update_xaxes(title_text="φ₂", row=r, col=c, showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True)
+                            pfig.update_yaxes(title_text="φ₃", row=r, col=c, showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True)
+                    
                     try:
-                        _display_and_export_plot(fig, "fh_crowding_ternary_contour_subplots", "tern_contour_subplots")
+                        _display_and_export_plotly(pfig, "fh_crowding_ternary_contour_subplots", "tern_contour_subplots", height=700)
                     except Exception as e:
                         st.error(f"Error rendering custom 2D contour plot subplots: {e}")
                 else:
-                    fig, ax = plt.subplots(figsize=(6, 4.5))
+                    pfig = go.Figure()
                     z_data = getattr(solved_model, z_attr)
-                    cp = ax.contourf(solved_model.phi2, solved_model.phi3, z_data, levels=15)
-                    ax.contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                    ax.set_xlabel(r"$\phi_2$")
-                    ax.set_ylabel(r"$\phi_3$")
-                    ax.set_title(z_label)
-                    fig.colorbar(cp, label=z_label)
-                    # 2D contour: no experimental scatter overlays
-                    # (use the 3D Surface Plot mode to compare model vs. experimental data)
+                    pfig.add_trace(go.Contour(
+                        x=solved_model.phi2[0, :],
+                        y=solved_model.phi3[:, 0],
+                        z=z_data,
+                        colorscale=[[0, "#f8f9fa"], [1, styles.PLOT_TOTAL_COLOR]],
+                        colorbar=dict(title=dict(text=z_label_unicode, font=dict(size=12)), thickness=20),
+                        hovertemplate="φ₂: %{x:.3f}<br>φ₃: %{y:.3f}<br>Value: %{z:.4f}<extra></extra>"
+                    ))
+                    pfig.update_layout(
+                        title=dict(text=z_label_unicode, font=dict(family="Inter, DejaVu Sans", size=14)),
+                        xaxis_title="φ₂",
+                        yaxis_title="φ₃",
+                        plot_bgcolor="white",
+                        paper_bgcolor="white",
+                        font=dict(family="Inter, DejaVu Sans", size=12),
+                        margin=dict(l=60, r=20, t=50, b=60),
+                        xaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True),
+                        yaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True),
+                    )
                     try:
-                        _display_and_export_plot(fig, "fh_crowding_ternary_contour_plot", "tern_contour_plot")
+                        _display_and_export_plotly(pfig, "fh_crowding_ternary_contour_plot", "tern_contour_plot")
                     except Exception as e:
                         st.error(f"Error rendering custom 2D contour plot: {e}")
                     
@@ -2156,7 +2247,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     x=solved_model.phi2,
                     y=solved_model.phi3,
                     z=z_surface,
-                    colorscale="Viridis",
+                    colorscale=[[0, "#f8f9fa"], [1, styles.PLOT_TOTAL_COLOR]],
                     opacity=0.65,
                     name="Model surface",
                     colorbar=dict(title=z3d_label, thickness=14, len=0.7),
@@ -2191,21 +2282,23 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     pass  # Edge lines are optional
 
                 # Experimental scatter
+                c2_key = "exp_conc2_G" if exp_val_key == "exp_val_G" else "exp_conc2_T"
+                c3_key = "exp_conc3_G" if exp_val_key == "exp_val_G" else "exp_conc3_T"
                 has_exp_3d = (
-                    st.session_state.get("exp_conc2") is not None and
+                    st.session_state.get(c2_key) is not None and
                     st.session_state.get(exp_val_key) is not None
                 )
                 if has_exp_3d:
                     exp_phi2 = convert_exp_conc(
-                        st.session_state["exp_conc2"],
+                        st.session_state[c2_key],
                         from_type=uploaded_conc_unit, to_type="phiC",
                         model=solved_model, is_ternary=True, cosolute_idx=2
                     )
                     exp_phi3 = convert_exp_conc(
-                        st.session_state["exp_conc3"],
+                        st.session_state[c3_key],
                         from_type=uploaded_conc_unit, to_type="phiC",
                         model=solved_model, is_ternary=True, cosolute_idx=3,
-                        exp_conc3=st.session_state["exp_conc3"]
+                        exp_conc3=st.session_state[c3_key]
                     )
                     exp_z = np.array(st.session_state[exp_val_key], dtype=float)
                     # Convert kcal→kJ if model axis is kJ
@@ -2265,28 +2358,28 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     val3 = st.select_slider("Select constant phi3 value", options=list(phi3_axis))
                     idx3 = np.where(phi3_axis == val3)[0][0]
                     x_data = phi2_axis
-                    x_label = r"$\phi_2$"
+                    x_label_unicode = "φ₂"
                     slicer = lambda arr2d: arr2d[idx3, :]
                 elif slice_type == "Constant phi2":
                     val2 = st.select_slider("Select constant phi2 value", options=list(phi2_axis))
                     idx2 = np.where(phi2_axis == val2)[0][0]
                     x_data = phi3_axis
-                    x_label = r"$\phi_3$"
+                    x_label_unicode = "φ₃"
                     slicer = lambda arr2d: arr2d[:, idx2]
                 else: # Diagonal
                     x_data = np.diag(solved_model.phi2)
-                    x_label = r"$\phi_2 = \phi_3$"
+                    x_label_unicode = "φ₂ = φ₃"
                     slicer = lambda arr2d: np.diag(arr2d)
                     
                 y_name = st.selectbox("Y-Axis Property", list(properties_contour.keys()))
-                y_attr, y_label, _y_label_unicode = properties_contour[y_name]
+                y_attr, y_label, y_label_unicode = properties_contour[y_name]
                 
                 is_potential = any(p in y_attr for p in ["ddG", "ddH", "TddS"])
                 plot_contrib = False
                 if is_potential:
                     plot_contrib = st.checkbox("Plot alongside contributions (nu, chi, eps)", value=True, key="tern_slice_contrib")
                     
-                fig, ax = plt.subplots(figsize=(6, 4))
+                pfig = go.Figure()
                 
                 if plot_contrib:
                     if "ddG" in y_attr:
@@ -2298,41 +2391,71 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     suffix = "_kJ" if "_kJ" in y_attr else ""
                     
                     total_z = getattr(solved_model, f"{base}{suffix}")
-                    ax.plot(x_data, slicer(total_z), label="Total Model", color="black", linewidth=2)
+                    pfig.add_trace(go.Scatter(
+                        x=x_data, y=slicer(total_z),
+                        name="Total Model",
+                        line=dict(color=styles.PLOT_TOTAL_COLOR, width=2.5, dash="solid"),
+                        hovertemplate=x_label_unicode + ": %{x:.4f}<br>Total: %{y:.4f}<extra></extra>"
+                    ))
                     
                     if base != "ddH":
                         nu_z = getattr(solved_model, f"{base}_nu{suffix}")
-                        ax.plot(x_data, slicer(nu_z), label=r"$\nu$ (Excluded Volume)", linestyle="--")
+                        pfig.add_trace(go.Scatter(
+                            x=x_data, y=slicer(nu_z),
+                            name="ν (Excluded Volume)",
+                            line=dict(color=styles.PLOT_NU_COLOR, width=2, dash="solid"),
+                            hovertemplate=x_label_unicode + ": %{x:.4f}<br>Excluded Volume: %{y:.4f}<extra></extra>"
+                        ))
                         
                     chi_z = getattr(solved_model, f"{base}_chi{suffix}")
-                    ax.plot(x_data, slicer(chi_z), label=r"$\chi$ (Non-ideal mixing)", linestyle=":")
+                    pfig.add_trace(go.Scatter(
+                        x=x_data, y=slicer(chi_z),
+                        name="χ (Non-ideal mixing)",
+                        line=dict(color=styles.PLOT_CHI_COLOR, width=2, dash="solid"),
+                        hovertemplate=x_label_unicode + ": %{x:.4f}<br>Mixing: %{y:.4f}<extra></extra>"
+                    ))
                     
                     eps_z = getattr(solved_model, f"{base}_eps{suffix}")
-                    ax.plot(x_data, slicer(eps_z), label=r"$\varepsilon$ (Soft interaction)", linestyle="-.")
-                    
-                    ax.legend()
+                    pfig.add_trace(go.Scatter(
+                        x=x_data, y=slicer(eps_z),
+                        name="ε (Soft interaction)",
+                        line=dict(color=styles.PLOT_EPS_COLOR, width=2, dash="solid"),
+                        hovertemplate=x_label_unicode + ": %{x:.4f}<br>Soft: %{y:.4f}<extra></extra>"
+                    ))
                 else:
                     y_data = getattr(solved_model, y_attr)
-                    ax.plot(x_data, slicer(y_data), color="black", linewidth=2, label="Model results")
+                    pfig.add_trace(go.Scatter(
+                        x=x_data, y=slicer(y_data),
+                        name="Model results",
+                        line=dict(color=styles.PLOT_TOTAL_COLOR, width=2.5, dash="solid"),
+                        hovertemplate=x_label_unicode + ": %{x:.4f}<br>Value: %{y:.4f}<extra></extra>"
+                    ))
                     
                 # Overlay experimental data on 1D Slice if requested
-                if show_exp and st.session_state.get("exp_conc2") is not None:
-                    # We need the appropriate Y array to slice
+                if show_exp:
                     if "ddG" in y_attr:
                         exp_val = st.session_state.get("exp_val_G")
+                        c2_key = "exp_conc2_G"
+                        c3_key = "exp_conc3_G"
                     elif "ddH" in y_attr:
                         exp_val = st.session_state.get("exp_val_H")
+                        c2_key = "exp_conc2_T"
+                        c3_key = "exp_conc3_T"
                     elif "TddS" in y_attr:
                         exp_val = st.session_state.get("exp_val_S")
+                        c2_key = "exp_conc2_T"
+                        c3_key = "exp_conc3_T"
                     else:
                         exp_val = None
+                        c2_key = None
+                        c3_key = None
                         
-                    if exp_val is not None:
+                    if exp_val is not None and st.session_state.get(c2_key) is not None:
                         if "kcal" in y_attr:
                             exp_val = exp_val / 4.184
                         # Convert exp concentrations to volume fractions
-                        exp_x_phi = convert_exp_conc(st.session_state["exp_conc2"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
-                        exp_y_phi = convert_exp_conc(st.session_state["exp_conc3"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3"])
+                        exp_x_phi = convert_exp_conc(st.session_state[c2_key], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
+                        exp_y_phi = convert_exp_conc(st.session_state[c3_key], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state[c3_key])
                         
                         # Find points in experimental dataset that align with the slice path (within tolerance)
                         tolerance = 0.005
@@ -2350,13 +2473,33 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                             slice_exp_y = exp_val[mask]
                             
                         if len(slice_exp_x) > 0:
-                            ax.scatter(slice_exp_x, slice_exp_y, color='red', edgecolor='black', s=45, label='Experimental', zorder=5)
-                            ax.legend()
+                            pfig.add_trace(go.Scatter(
+                                x=slice_exp_x, y=slice_exp_y,
+                                mode="markers",
+                                name="Experimental",
+                                marker=dict(
+                                    color=styles.PLOT_EXP_COLOR, size=10,
+                                    symbol="circle", line=dict(color="black", width=1.2)
+                                ),
+                                hovertemplate="Experimental<br>" + x_label_unicode + ": %{x:.4f}<br>Value: %{y:.4f}<extra></extra>"
+                            ))
                             
-                ax.set_xlabel(x_label)
-                ax.set_ylabel(y_label)
-                ax.grid(True, linestyle=":", alpha=0.6)
+                pfig.update_layout(
+                    xaxis_title=x_label_unicode,
+                    yaxis_title=y_label_unicode,
+                    plot_bgcolor="white",
+                    paper_bgcolor="white",
+                    legend=dict(
+                        orientation="v", x=1.02, xanchor="left",
+                        bgcolor="rgba(255,255,255,0.8)",
+                        bordercolor="#dde3e8", borderwidth=1
+                    ),
+                    margin=dict(l=60, r=20, t=30, b=60),
+                    font=dict(family="Inter, DejaVu Sans", size=12),
+                    xaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True),
+                    yaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True),
+                )
                 try:
-                    _display_and_export_plot(fig, "fh_crowding_ternary_slice_plot", "tern_slice_plot")
+                    _display_and_export_plotly(pfig, "fh_crowding_ternary_slice_plot", "tern_slice_plot")
                 except Exception as e:
                     st.error(f"Error rendering custom 1D slice plot: {e}")
