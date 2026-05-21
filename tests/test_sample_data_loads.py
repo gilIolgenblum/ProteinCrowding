@@ -1,13 +1,13 @@
-import os
+from pathlib import Path
 import pytest
 import pandas as pd
 import numpy as np
 
-SAMPLE_FILE = "app/sample_data/aq16_glycerol_binary_format1.csv"
+SAMPLE_FILE = Path(__file__).parent.parent / "app" / "sample_data" / "aq16_glycerol_binary_format1.csv"
 
 def test_sample_file_exists():
     """Verify that the sample data file exists."""
-    assert os.path.exists(SAMPLE_FILE), f"Sample file {SAMPLE_FILE} not found."
+    assert SAMPLE_FILE.exists(), f"Sample file {SAMPLE_FILE} not found."
 
 def test_sample_data_delimiter_and_columns():
     """Verify delimiter handling and expected columns."""

@@ -183,8 +183,7 @@ def load_binary_sample_callback() -> None:
         "Trehalose (met16)": "met16_trehalose_binary_format1.csv",
         "Urea (met16)": "met16_urea_binary_format1.csv"
     }
-    import os
-    file_path = os.path.join("app", "sample_data", sample_files[sample_sel])
+    file_path = Path(__file__).parent / "sample_data" / sample_files[sample_sel]
     try:
         df = pd.read_csv(file_path)
         df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
@@ -287,10 +286,10 @@ def load_ternary_sample_callback() -> None:
             "TdS": "aq16_urea_tmao_ternary_format1_TdS.csv"
         }
     }
-    import os
     files = sample_files[sample_sel]
     try:
-        df_G = pd.read_csv(os.path.join("app", "sample_data", files["dG"]))
+        app_dir = Path(__file__).parent
+        df_G = pd.read_csv(app_dir / "sample_data" / files["dG"])
         df_G["conc2"] = pd.to_numeric(df_G["conc2"], errors='coerce')
         df_G["conc3"] = pd.to_numeric(df_G["conc3"], errors='coerce')
         df_G["dG"] = pd.to_numeric(df_G["dG"], errors='coerce')
@@ -332,7 +331,7 @@ def load_ternary_sample_callback() -> None:
         st.session_state["sample_load_error"] = None
         
         try:
-            df_H = pd.read_csv(os.path.join("app", "sample_data", files["dH"]))
+            df_H = pd.read_csv(app_dir / "sample_data" / files["dH"])
             df_H["conc2"] = pd.to_numeric(df_H["conc2"], errors='coerce')
             df_H["conc3"] = pd.to_numeric(df_H["conc3"], errors='coerce')
             df_H["dH"] = pd.to_numeric(df_H["dH"], errors='coerce')
@@ -347,7 +346,7 @@ def load_ternary_sample_callback() -> None:
             pass
             
         try:
-            df_S = pd.read_csv(os.path.join("app", "sample_data", files["TdS"]))
+            df_S = pd.read_csv(app_dir / "sample_data" / files["TdS"])
             df_S["conc2"] = pd.to_numeric(df_S["conc2"], errors='coerce')
             df_S["conc3"] = pd.to_numeric(df_S["conc3"], errors='coerce')
             df_S["TdS"] = pd.to_numeric(df_S["TdS"], errors='coerce')
@@ -939,6 +938,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                 st.success(f"Sample ternary dataset '{sample_sel}' loaded successfully! (in kJ/mol)")
 
         st.markdown("### 📂 Option B: Upload Your Own CSV File(s)")
+        st.caption("🔒 **Data Privacy:** Uploaded files are processed during the app session and are not stored by the app. Do not upload confidential data unless you are comfortable using this deployment environment.")
         if model_type == "Binary Crowding Model":
             st.caption(
                 "**Binary CSV format:** columns concentration (in the unit selected on the left), "

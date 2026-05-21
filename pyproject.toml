@@ -20,5 +20,5 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-app = ["streamlit"]
+app = ["streamlit", "plotly"]
 dev = ["pytest", "jupyter"]
