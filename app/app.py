@@ -1653,20 +1653,20 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 if pot_type == "ddA":
                     suf = "_kj" if pot_unit == "kJ" else "_kcal"
                     _add_trace(getattr(solved_model, f"ddA{suf}"),    "Total ΔΔG",           styles.PLOT_TOTAL_COLOR, "solid", 2.5)
-                    _add_trace(getattr(solved_model, f"ddA_nu{suf}"), "ν (Excluded Volume)", styles.PLOT_NU_COLOR,    "dash")
-                    _add_trace(getattr(solved_model, f"ddA_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "dot")
-                    _add_trace(getattr(solved_model, f"ddA_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "dashdot")
+                    _add_trace(getattr(solved_model, f"ddA_nu{suf}"), "ν (Excluded Volume)", styles.PLOT_NU_COLOR,    "solid")
+                    _add_trace(getattr(solved_model, f"ddA_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "solid")
+                    _add_trace(getattr(solved_model, f"ddA_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "solid")
                 elif pot_type == "ddE":
                     suf = "_kj" if pot_unit == "kJ" else "_kcal"
                     _add_trace(getattr(solved_model, f"ddE{suf}"),    "Total ΔΔH",           styles.PLOT_TOTAL_COLOR, "solid", 2.5)
-                    _add_trace(getattr(solved_model, f"ddE_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "dot")
-                    _add_trace(getattr(solved_model, f"ddE_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "dashdot")
+                    _add_trace(getattr(solved_model, f"ddE_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "solid")
+                    _add_trace(getattr(solved_model, f"ddE_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "solid")
                 elif pot_type == "TddS":
                     suf = "_kj" if pot_unit == "kJ" else "_kcal"
                     _add_trace(getattr(solved_model, f"TddS{suf}"),    "Total TΔΔS",          styles.PLOT_TOTAL_COLOR, "solid", 2.5)
-                    _add_trace(getattr(solved_model, f"TddS_nu{suf}"), "ν (Excluded Volume)", styles.PLOT_NU_COLOR,    "dash")
-                    _add_trace(getattr(solved_model, f"TddS_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "dot")
-                    _add_trace(getattr(solved_model, f"TddS_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "dashdot")
+                    _add_trace(getattr(solved_model, f"TddS_nu{suf}"), "ν (Excluded Volume)", styles.PLOT_NU_COLOR,    "solid")
+                    _add_trace(getattr(solved_model, f"TddS_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "solid")
+                    _add_trace(getattr(solved_model, f"TddS_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "solid")
             else:
                 y_data = getattr(solved_model, y_attr)
                 pfig.add_trace(go.Scatter(
@@ -1740,8 +1740,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     pfig.add_trace(go.Scatter(
                         x=exp_x, y=exp_y, mode="markers", name="Experimental",
                         marker=dict(
-                            color=styles.PLOT_EXP_COLOR, size=9,
-                            symbol="circle", line=dict(color="white", width=1.5)
+                            color=styles.PLOT_EXP_COLOR, size=10,
+                            symbol="circle", line=dict(color="black", width=1.2)
                         ),
                         error_y=dict(
                             type="data", array=list(err_y) if has_err else None, visible=has_err,
@@ -1762,8 +1762,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 ),
                 margin=dict(l=60, r=20, t=30, b=60),
                 font=dict(family="Inter, DejaVu Sans", size=12),
-                xaxis=dict(showgrid=True, gridcolor="#e8edf2", gridwidth=0.5, zeroline=False),
-                yaxis=dict(showgrid=True, gridcolor="#e8edf2", gridwidth=0.5, zeroline=False),
+                xaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True),
+                yaxis=dict(showgrid=False, zeroline=False, showline=True, linecolor=styles.PALETTE_DARK, linewidth=1, mirror=True),
             )
             try:
                 _display_and_export_plotly(pfig, "fh_crowding_binary_custom_plot", "bin_custom_plot")
@@ -1967,8 +1967,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         x=exp_phi2, y=exp_phi3, z=exp_z,
                         mode="markers", name="Experimental",
                         marker=dict(
-                            color=styles.PLOT_EXP_COLOR, size=6,
-                            symbol="circle", line=dict(color="white", width=1)
+                            color=styles.PLOT_EXP_COLOR, size=8,
+                            symbol="circle", line=dict(color="black", width=1)
                         ),
                         hovertemplate="φ₂=%{x:.3f}<br>φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Experimental</extra>",
                     ))
