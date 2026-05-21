@@ -1,9 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 from io import StringIO
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import plotly.io as pio
 import fh_crowding
 import sys
 from pathlib import Path
@@ -58,9 +60,10 @@ def _display_and_export_plot(fig, filename, key):
         )
 
 
-def _display_and_export_plotly(fig, filename, key):
-    """Render a Plotly figure and provide PNG/SVG download buttons."""
-    st.plotly_chart(fig, use_container_width=True)
+def _display_and_export_plotly(fig, filename, key, height=500):
+    """Render a Plotly figure with MathJax support and provide PNG/SVG download buttons."""
+    html_str = pio.to_html(fig, include_mathjax='cdn', full_html=False)
+    components.html(html_str, height=height, scrolling=False)
     col1, col2 = st.columns(2)
     with col1:
         try:
@@ -882,9 +885,9 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
         st.markdown("### 📂 Option B: Upload Your Own CSV File(s)")
         if model_type == "Binary Crowding Model":
             st.caption(
-                "**Binary CSV format:** columns `concentration` (in the unit selected on the left), "
-                "and at least one of `dG` ($\\Delta\\Delta G$), `dH` ($\\Delta\\Delta H$), `TdS` ($T\\Delta\\Delta S$) "
-                "in kJ/mol or kcal/mol. Optional error columns: `err_dG`, `err_dH`, `err_TdS`."
+                "**Binary CSV format:** columns concentration (in the unit selected on the left), "
+                "and at least one thermodynamic property column (e.g., ΔΔG, ΔΔH, TΔΔS) in kJ/mol or kcal/mol. "
+                "Optional error columns: err_ΔΔG, err_ΔΔH, err_TΔΔS."
             )
             upload_mode = st.radio(
                 "Data Upload Format",
@@ -1570,20 +1573,20 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             st.subheader("Custom 1D Plot")
             
             properties = {
-                "Concentration (phiC)": ("phiC", r"$\phi_C$"),
-                "Molar Concentration": ("molar", "Molar [M]"),
-                "Molal Concentration": ("molal", "Molal [mol/kg]"),
-                "Osmotic Pressure": ("osm", r"$\Pi$ (Osmolal)"),
-                "Preferential Hydration (gamma)": ("gamma", r"$\Delta\Gamma_S$"),
-                "Preferential Interaction (gammaC)": ("gammaC", r"$\Delta\Gamma_C$"),
-                "phiCsurf": ("phiCsurf", r"$\phi_C^{surf}$"),
-                "phiSsurf": ("phiSsurf", r"$\phi_S^{surf}$"),
-                "Free Energy (ddA) [kJ]": ("ddA_kj", r"$\Delta\Delta G^0$ [kJ/mol]"),
-                "Free Energy (ddA) [kcal]": ("ddA_kcal", r"$\Delta\Delta G^0$ [kcal/mol]"),
-                "Enthalpy (ddE) [kJ]": ("ddE_kj", r"$\Delta\Delta H^0$ [kJ/mol]"),
-                "Enthalpy (ddE) [kcal]": ("ddE_kcal", r"$\Delta\Delta H^0$ [kcal/mol]"),
-                "Entropy (TddS) [kJ]": ("TddS_kj", r"$T\Delta\Delta S^0$ [kJ/mol]"),
-                "Entropy (TddS) [kcal]": ("TddS_kcal", r"$T\Delta\Delta S^0$ [kcal/mol]"),
+                "Volume Fraction": ("phiC", r'$\phi_C$'),
+                "Molar Concentration": ("molar", r'$\mathrm{Molar\ [M]}$'),
+                "Molal Concentration": ("molal", r'$\mathrm{Molal\ [mol/kg]}$'),
+                "Osmotic Pressure": ("osm", r'$\Pi\ \mathrm{(Osmolal)}$'),
+                "Preferential Hydration": ("gamma", r'$\Delta\Gamma_S$'),
+                "Preferential Interaction": ("gammaC", r'$\Delta\Gamma_C$'),
+                "phiCsurf": ("phiCsurf", r'$\phi_C^{\mathrm{surf}}$'),
+                "phiSsurf": ("phiSsurf", r'$\phi_S^{\mathrm{surf}}$'),
+                "Free Energy [kJ]": ("ddA_kj", r'$\Delta\Delta G^{0}\ \mathrm{[kJ/mol]}$'),
+                "Free Energy [kcal]": ("ddA_kcal", r'$\Delta\Delta G^{0}\ \mathrm{[kcal/mol]}$'),
+                "Enthalpy [kJ]": ("ddE_kj", r'$\Delta\Delta H^{0}\ \mathrm{[kJ/mol]}$'),
+                "Enthalpy [kcal]": ("ddE_kcal", r'$\Delta\Delta H^{0}\ \mathrm{[kcal/mol]}$'),
+                "Entropy [kJ]": ("TddS_kj", r'$T\Delta\Delta S^{0}\ \mathrm{[kJ/mol]}$'),
+                "Entropy [kcal]": ("TddS_kcal", r'$T\Delta\Delta S^{0}\ \mathrm{[kcal/mol]}$'),
             }
             
             col1, col2 = st.columns(2)
@@ -1772,23 +1775,26 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             
             tern_mode = st.radio("Plot Type", ["2D Contour Plot", "1D Slice Plot", "3D Surface Plot"])
             
+            # Dual-label system: (attr, latex_label, unicode_label)
+            # latex_label → matplotlib (contour, slice) where LaTeX renders natively
+            # unicode_label → 3D Plotly (WebGL) where MathJax cannot render
             properties_contour = {
-                "Free Energy (ddG) [kT]": ("ddG", r"$\Delta\Delta G^0 / (k_B T)$"),
-                "Free Energy (ddG) [kJ]": ("ddG_kJ", r"$\Delta\Delta G^0$ [kJ/mol]"),
-                "Enthalpy (ddH) [kT]": ("ddH", r"$\Delta\Delta H^0 / (k_B T)$"),
-                "Enthalpy (ddH) [kJ]": ("ddH_kJ", r"$\Delta\Delta H^0$ [kJ/mol]"),
-                "Entropy (TddS) [kT]": ("TddS", r"$T\Delta\Delta S^0 / (k_B T)$"),
-                "Entropy (TddS) [kJ]": ("TddS_kJ", r"$T\Delta\Delta S^0$ [kJ/mol]"),
-                "Osmotic Pressure": ("osm", r"$\Pi$ (Osmolal)"),
-                "Preferential Interaction 2 (Gamma_2)": ("Gamma_2", r"$\Delta\Gamma_2$"),
-                "Preferential Interaction 3 (Gamma_3)": ("Gamma_3", r"$\Delta\Gamma_3$"),
-                "Preferential Interaction 1,2 (Gamma_1_2)": ("Gamma_1_2", r"$\Delta\Gamma_{1,2}$"),
-                "Preferential Interaction 1,3 (Gamma_1_3)": ("Gamma_1_3", r"$\Delta\Gamma_{1,3}$"),
+                "Free Energy (ddG) [kT]": ("ddG", r'$\Delta\Delta G^{0} / (k_B T)$', "ΔΔG⁰ / (k_B T)"),
+                "Free Energy (ddG) [kJ]": ("ddG_kJ", r'$\Delta\Delta G^{0}\ \mathrm{[kJ/mol]}$', "ΔΔG⁰ [kJ/mol]"),
+                "Enthalpy (ddH) [kT]": ("ddH", r'$\Delta\Delta H^{0} / (k_B T)$', "ΔΔH⁰ / (k_B T)"),
+                "Enthalpy (ddH) [kJ]": ("ddH_kJ", r'$\Delta\Delta H^{0}\ \mathrm{[kJ/mol]}$', "ΔΔH⁰ [kJ/mol]"),
+                "Entropy (TddS) [kT]": ("TddS", r'$T\Delta\Delta S^{0} / (k_B T)$', "TΔΔS⁰ / (k_B T)"),
+                "Entropy (TddS) [kJ]": ("TddS_kJ", r'$T\Delta\Delta S^{0}\ \mathrm{[kJ/mol]}$', "TΔΔS⁰ [kJ/mol]"),
+                "Osmotic Pressure": ("osm", r'$\Pi\ \mathrm{(Osmolal)}$', "Π (Osmolal)"),
+                "Preferential Interaction 2 (Gamma_2)": ("Gamma_2", r'$\Delta\Gamma_2$', "ΔΓ₂"),
+                "Preferential Interaction 3 (Gamma_3)": ("Gamma_3", r'$\Delta\Gamma_3$', "ΔΓ₃"),
+                "Preferential Interaction 1,2 (Gamma_1_2)": ("Gamma_1_2", r'$\Delta\Gamma_{1,2}$', "ΔΓ₁,₂"),
+                "Preferential Interaction 1,3 (Gamma_1_3)": ("Gamma_1_3", r'$\Delta\Gamma_{1,3}$', "ΔΓ₁,₃"),
             }
             
             if tern_mode == "2D Contour Plot":
                 z_name = st.selectbox("Property to plot (Contours over phi2 vs phi3)", list(properties_contour.keys()))
-                z_attr, z_label = properties_contour[z_name]
+                z_attr, z_label, z_label_unicode = properties_contour[z_name]
                 
                 is_potential = any(p in z_attr for p in ["ddG", "ddH", "TddS"])
                 plot_contrib = False
@@ -1816,28 +1822,28 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     
                     # Subplot 2: nu
                     if base == "ddH":
-                        axes[0,1].text(0.5, 0.5, "No Excluded Volume (\n$\\nu$) contribution\nfor Enthalpy", 
+                        axes[0,1].text(0.5, 0.5, "No Excluded Volume\n" + r"($\nu$)" + " contribution\nfor Enthalpy", 
                                        ha='center', va='center', fontsize=12)
                         axes[0,1].set_title(r"$\nu$ Contribution")
                     else:
                         nu_z = getattr(solved_model, f"{base}_nu{suffix}")
                         cp = axes[0,1].contourf(solved_model.phi2, solved_model.phi3, nu_z, levels=12)
                         axes[0,1].contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                        axes[0,1].set_title(rf"$\nu$ Contribution")
+                        axes[0,1].set_title(r"$\nu$ Contribution")
                         fig.colorbar(cp, ax=axes[0,1])
                         
                     # Subplot 3: chi
                     chi_z = getattr(solved_model, f"{base}_chi{suffix}")
                     cp = axes[1,0].contourf(solved_model.phi2, solved_model.phi3, chi_z, levels=12)
                     axes[1,0].contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                    axes[1,0].set_title(rf"$\chi$ Contribution")
+                    axes[1,0].set_title(r"$\chi$ Contribution")
                     fig.colorbar(cp, ax=axes[1,0])
                     
                     # Subplot 4: eps
                     eps_z = getattr(solved_model, f"{base}_eps{suffix}")
                     cp = axes[1,1].contourf(solved_model.phi2, solved_model.phi3, eps_z, levels=12)
                     axes[1,1].contour(cp, colors='k', linestyles='solid', linewidths=0.5)
-                    axes[1,1].set_title(rf"$\varepsilon$ Contribution")
+                    axes[1,1].set_title(r"$\varepsilon$ Contribution")
                     fig.colorbar(cp, ax=axes[1,1])
                     
                     # 2D contour: no experimental scatter overlays
@@ -1868,7 +1874,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     
             elif tern_mode == "3D Surface Plot":  # 3D Surface Plot
                 st.write(
-                    "Interactive 3D plot: model surface over the ϕ₂–ϕ₃ grid. "
+                    "Interactive 3D plot: model surface over the φ₂–φ₃ grid. "
                     "When experimental data is loaded, data points are overlaid as red scatter."
                 )
 
@@ -1900,7 +1906,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     name="Model surface",
                     colorbar=dict(title=z3d_label, thickness=14, len=0.7),
                     showscale=True,
-                    hovertemplate="ϕ₂=%{x:.3f}<br>ϕ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Model</extra>",
+                    hovertemplate="φ₂=%{x:.3f}<br>φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Model</extra>",
                 ))
 
                 # Binary edge lines: cosolute-2 axis (phi3 = 0) and cosolute-3 axis (phi2 = 0)
@@ -1913,18 +1919,18 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     z_edge2 = z_surface[0, :]
                     pfig3d.add_trace(go.Scatter3d(
                         x=phi2_axis_3d, y=np.zeros_like(phi2_axis_3d), z=z_edge2,
-                        mode="lines", name="ϕ₃ = 0 (cosolute 2 axis)",
+                        mode="lines", name="φ₃ = 0 (cosolute 2 axis)",
                         line=dict(color=styles.PLOT_NU_COLOR, width=5),
-                        hovertemplate="ϕ₂=%{x:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>ϕ₃=0</extra>",
+                        hovertemplate="φ₂=%{x:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>φ₃=0</extra>",
                     ))
 
                     # Edge along phi2 = 0 (cosolute-3 axis)
                     z_edge3 = z_surface[:, 0]
                     pfig3d.add_trace(go.Scatter3d(
                         x=np.zeros_like(phi3_axis_3d), y=phi3_axis_3d, z=z_edge3,
-                        mode="lines", name="ϕ₂ = 0 (cosolute 3 axis)",
+                        mode="lines", name="φ₂ = 0 (cosolute 3 axis)",
                         line=dict(color=styles.PLOT_CHI_COLOR, width=5),
-                        hovertemplate="ϕ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>ϕ₂=0</extra>",
+                        hovertemplate="φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>φ₂=0</extra>",
                     ))
                 except Exception:
                     pass  # Edge lines are optional
@@ -1964,15 +1970,15 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                             color=styles.PLOT_EXP_COLOR, size=6,
                             symbol="circle", line=dict(color="white", width=1)
                         ),
-                        hovertemplate="ϕ₂=%{x:.3f}<br>ϕ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Experimental</extra>",
+                        hovertemplate="φ₂=%{x:.3f}<br>φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Experimental</extra>",
                     ))
                 elif show_exp:
                     st.info("Upload experimental data (ΔΔG / ΔΔH / TΔΔS with concentrations) to overlay scatter points.")
 
                 pfig3d.update_layout(
                     scene=dict(
-                        xaxis_title="ϕ₂",
-                        yaxis_title="ϕ₃",
+                        xaxis_title="φ₂",
+                        yaxis_title="φ₃",
                         zaxis_title=z3d_label,
                         bgcolor="rgb(250,252,255)",
                     ),
@@ -1985,7 +1991,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     height=600,
                 )
                 try:
-                    _display_and_export_plotly(pfig3d, "fh_crowding_ternary_3d_surface", "tern_3d_surface")
+                    _display_and_export_plotly(pfig3d, "fh_crowding_ternary_3d_surface", "tern_3d_surface", height=620)
                 except Exception as e:
                     st.error(f"Error rendering 3D surface plot: {e}")
 
@@ -2018,7 +2024,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     slicer = lambda arr2d: np.diag(arr2d)
                     
                 y_name = st.selectbox("Y-Axis Property", list(properties_contour.keys()))
-                y_attr, y_label = properties_contour[y_name]
+                y_attr, y_label, _y_label_unicode = properties_contour[y_name]
                 
                 is_potential = any(p in y_attr for p in ["ddG", "ddH", "TddS"])
                 plot_contrib = False
