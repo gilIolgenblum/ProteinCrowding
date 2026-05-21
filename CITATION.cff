@@ -1,0 +1,113 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated publications and the software repository."
+title: "ProteinCrowding"
+type: software
+authors:
+  - family-names: Olgenblum
+    given-names: Gil I.
+    orcid: "https://orcid.org/0000-0002-4514-5516"
+repository-code: "https://github.com/gilIolgenblum/ProteinCrowding"
+abstract: "A Python and Streamlit tool for thermodynamic modeling of protein crowding, cosolute effects, and Flory-Huggins-inspired protein stability analysis."
+version: "0.1.0"
+date-released: "2026-05-21"
+references:
+  - type: article
+    authors:
+      - family-names: Sapir
+        given-names: Liel
+      - family-names: Harries
+        given-names: Daniel
+    title: "Macromolecular stabilization by excluded cosolutes: mean field theory of crowded solutions"
+    journal: "Journal of Chemical Theory and Computation"
+    year: 2015
+    volume: 11
+    issue: 7
+    start: 3478
+    end: 3490
+  - type: article
+    authors:
+      - family-names: Sapir
+        given-names: Liel
+      - family-names: Harries
+        given-names: Daniel
+    title: "Macromolecular compaction by mixed solutions: Bridging versus depletion attraction"
+    journal: "Current Opinion in Colloid & Interface Science"
+    year: 2016
+    volume: 22
+    start: 80
+    end: 87
+  - type: article
+    authors:
+      - family-names: Stewart
+        given-names: C. J.
+      - family-names: Olgenblum
+        given-names: Gil I.
+      - family-names: Propst
+        given-names: A.
+      - family-names: Harries
+        given-names: Daniel
+      - family-names: Pielak
+        given-names: Gary J.
+    title: "Resolving the enthalpy of protein stabilization by macromolecular crowding"
+    journal: "Protein Science"
+    year: 2023
+    volume: 32
+    issue: 3
+    doi: "10.1002/pro.4573"
+  - type: article
+    authors:
+      - family-names: Olgenblum
+        given-names: Gil I.
+      - family-names: Carmon
+        given-names: N.
+      - family-names: Harries
+        given-names: Daniel
+    title: "Not always sticky: specificity of protein stabilization by sugars is conferred by protein-water hydrogen bonds"
+    journal: "Journal of the American Chemical Society"
+    year: 2023
+    volume: 145
+    issue: 42
+    start: 23308
+    end: 23320
+  - type: article
+    authors:
+      - family-names: Olgenblum
+        given-names: Gil I.
+      - family-names: Stewart
+        given-names: C. J.
+      - family-names: Redvanly
+        given-names: T. W.
+      - family-names: Young
+        given-names: O. M.
+      - family-names: Lauzier
+        given-names: F.
+      - family-names: Hazlett
+        given-names: S.
+      - family-names: Harries
+        given-names: Daniel
+    title: "Crowding beyond excluded volume: A tale of two dimers"
+    journal: "Protein Science"
+    year: 2025
+    volume: 34
+    issue: 4
+  - type: article
+    authors:
+      - family-names: Redvanly
+        given-names: T. W.
+      - family-names: Olgenblum
+        given-names: Gil I.
+      - family-names: Young
+        given-names: O. M.
+      - family-names: Goldenberg
+        given-names: Y.
+      - family-names: Stewart
+        given-names: C. J.
+      - family-names: Harries
+        given-names: Daniel
+      - family-names: Pielak
+        given-names: Gary J.
+    title: "Sugar-protein interactions control protein-complex stability in crowded Ficoll and dextran solutions"
+    journal: "Protein Science"
+    year: 2026
+    volume: 35
+    issue: 1

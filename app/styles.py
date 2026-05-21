@@ -91,7 +91,6 @@ def inject_css() -> None:
         .fh-card-title {{
             font-size: 0.82rem;
             font-weight: 600;
-            text-transform: uppercase;
             letter-spacing: 0.05em;
             color: {PALETTE_MID};
             margin-bottom: 0.3rem;

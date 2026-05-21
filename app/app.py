@@ -14,6 +14,7 @@ sys.path.append(str(Path(__file__).parent))
 import session_io
 import export
 import styles
+import citation
 
 st.set_page_config(
     page_title="FH Crowding Model — Thermodynamic Analysis",
@@ -847,6 +848,8 @@ else:
         T=T,
     )
 
+    citation.render_sidebar_citation()
+
 # ---------------------------------------------------------------------------
 # Automatic rerun if session has just been restored
 # ---------------------------------------------------------------------------
@@ -1247,7 +1250,7 @@ with col_fit:
             
             # Button 1: Fit eps
             with col_b1:
-                st.markdown("**$\\varepsilon$ — Free Energy Soft Parameter**")
+                st.markdown("**Free Energy**")
                 fit_eps_btn = st.button("Fit ε (from ΔΔG)", key="btn_fit_eps", use_container_width=True)
                 if fit_eps_btn:
                     if st.session_state.get("exp_ddG") is not None and st.session_state.get("exp_conc_G") is not None:
@@ -1291,7 +1294,7 @@ with col_fit:
                         
             # Button 2: Fit epsTS
             with col_b2:
-                st.markdown("**$\\varepsilon_{TS}$ — Entropic Soft Parameter**")
+                st.markdown("**Entropy & Enthalpy**")
                 fit_epsts_btn = st.button("Fit εₜₛ (from ΔΔH, TΔΔS)", key="btn_fit_epsts", use_container_width=True)
                 if fit_epsts_btn:
                     if (st.session_state.get("exp_ddH") is not None and 
@@ -1372,7 +1375,7 @@ with col_fit:
             
             # Column 1: Fit eps
             with col_t1:
-                st.markdown("**Free Energy Soft Parameters**")
+                st.markdown("**Free Energy**")
                 
                 # Fit eps2
                 fit_eps2_btn = st.button("Fit ε₂ (phi3 = 0)", key="btn_fit_eps2", use_container_width=True)
@@ -1529,7 +1532,7 @@ with col_fit:
             
             # Column 2: Fit epsTS
             with col_t2:
-                st.markdown("**Entropic Soft Parameters**")
+                st.markdown("**Entroppy & Enthalpy**")
                 
                 # Fit epsTS2
                 fit_epsts2_btn = st.button("Fit εₜₛ₂ (phi3 = 0)", key="btn_fit_epsts2", use_container_width=True)
@@ -1711,8 +1714,8 @@ with col_fit:
                 epsts3_val = f"{model.epsTS3:.4f}" if st.session_state["fitted_epsTS3"] is not None else "—"
                 epsts23_val = f"{model.epsTS23:.4f}" if st.session_state["fitted_epsTS23"] is not None else "—"
                 st.markdown(
-                    styles.param_card("εₜₛ₂", epsts2_val, "Cosolute 2 entropy component") +
-                    styles.param_card("εₜₛ₃", epsts3_val, "Cosolute 3 entropy component") +
+                    styles.param_card("εₜₛ₂", epsts2_val, "Cosolute 2 entropy") +
+                    styles.param_card("εₜₛ₃", epsts3_val, "Cosolute 3 entropy") +
                     styles.param_card("εₜₛ₂₃ (synergy)", epsts23_val, "Entropy synergy coupling"),
                     unsafe_allow_html=True
                 )
@@ -2513,3 +2516,5 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     _display_and_export_plotly(pfig, "fh_crowding_ternary_slice_plot", "tern_slice_plot")
                 except Exception as e:
                     st.error(f"Error rendering custom 1D slice plot: {e}")
+
+citation.render_about_and_citation()
