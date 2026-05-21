@@ -3,14 +3,37 @@ import pandas as pd
 import numpy as np
 from io import StringIO
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import fh_crowding
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 import session_io
 import export
+import styles
 
-st.set_page_config(page_title="FH Crowding Model", layout="wide")
+st.set_page_config(
+    page_title="FH Crowding Model — Thermodynamic Analysis",
+    layout="wide",
+    menu_items={"About": "FH Crowding Thermodynamic Model. Built with Streamlit."}
+)
+styles.inject_css()
+
+# ---------------------------------------------------------------------------
+# Global matplotlib style for all preset plots
+# ---------------------------------------------------------------------------
+plt.rcParams.update({
+    "font.family":    "DejaVu Sans",
+    "font.size":       9,
+    "axes.linewidth":  0.8,
+    "axes.labelsize":  9,
+    "axes.titlesize": 10,
+    "xtick.labelsize": 8,
+    "ytick.labelsize": 8,
+    "legend.fontsize": 8,
+    "lines.linewidth": 1.5,
+    "figure.dpi":     120,
+})
 
 def _display_and_export_plot(fig, filename, key):
     st.pyplot(fig)
@@ -33,6 +56,38 @@ def _display_and_export_plot(fig, filename, key):
             key=f"{key}_svg",
             use_container_width=True
         )
+
+
+def _display_and_export_plotly(fig, filename, key):
+    """Render a Plotly figure and provide PNG/SVG download buttons."""
+    st.plotly_chart(fig, use_container_width=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        try:
+            png_bytes = export.plotly_fig_to_bytes(fig, "png")
+            st.download_button(
+                "📥 Download Plot (PNG)",
+                data=png_bytes,
+                file_name=f"{filename}.png",
+                mime="image/png",
+                key=f"{key}_png",
+                use_container_width=True
+            )
+        except Exception:
+            st.caption("PNG export requires kaleido (`pip install kaleido`).")
+    with col2:
+        try:
+            svg_bytes = export.plotly_fig_to_bytes(fig, "svg")
+            st.download_button(
+                "📥 Download Plot (SVG)",
+                data=svg_bytes,
+                file_name=f"{filename}.svg",
+                mime="image/svg+xml",
+                key=f"{key}_svg",
+                use_container_width=True
+            )
+        except Exception:
+            st.caption("SVG export unavailable.")
 
 # ---------------------------------------------------------------------------
 # Cosolute database — individual cosolutes
@@ -443,9 +498,27 @@ if st.session_state.get("fit_updated"):
 # ---------------------------------------------------------------------------
 # Sidebar — common
 # ---------------------------------------------------------------------------
-st.title("FH Crowding Thermodynamic Model")
+st.markdown(
+    """
+    <div style="margin-bottom:0.3rem;">
+      <h1 style="font-size:1.7rem; font-weight:700; color:#2C3E50; margin-bottom:0.1rem;">
+        FH Crowding Thermodynamic Model
+      </h1>
+      <p style="font-size:0.87rem; color:#5D7A8A; margin-top:0;">
+        Flory–Huggins model for protein–cosolute crowding thermodynamics.
+        Choose a mode below to simulate or fit experimental data.
+      </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+styles.workflow_banner()
 
-st.sidebar.header("Model Configuration")
+st.sidebar.markdown(
+    '<p style="font-size:0.78rem; color:#5D7A8A; font-weight:600; '
+    'text-transform:uppercase; letter-spacing:0.05em;">Model Configuration</p>',
+    unsafe_allow_html=True,
+)
 model_type = st.sidebar.selectbox(
     "Model Type", ["Binary Crowding Model", "Ternary Crowding Model"]
 )
@@ -557,18 +630,18 @@ if model_type == "Binary Crowding Model":
              "You can still edit the values below manually.",
     )
 
-    nu    = st.sidebar.number_input("nu",    key="bin_nu",    step=0.01, format="%.4f")
-    chi   = st.sidebar.number_input("chi",   key="bin_chi",   step=0.01, format="%.4f")
-    chiTS = st.sidebar.number_input("chiTS", key="bin_chiTS", step=0.01, format="%.4f")
+    nu    = st.sidebar.number_input("ν (excluded volume)",              key="bin_nu",    step=0.01, format="%.4f")
+    chi   = st.sidebar.number_input("χ (non-ideal mixing)",              key="bin_chi",   step=0.01, format="%.4f")
+    chiTS = st.sidebar.number_input("χₜₛ (entropy component of χ)",      key="bin_chiTS", step=0.01, format="%.4f")
 
-    st.sidebar.subheader("Soft Interaction Parameters")
+    st.sidebar.subheader("Soft Interaction (ε)")
     
-    eps = st.sidebar.number_input("eps", step=0.01, format="%.4f", key="bin_eps_input")
-    epsTS = st.sidebar.number_input("epsTS", step=0.01, format="%.4f", key="bin_epsts_input")
+    eps   = st.sidebar.number_input("ε (soft interaction)",              step=0.01, format="%.4f", key="bin_eps_input")
+    epsTS = st.sidebar.number_input("εₜₛ (entropy component of ε)",     step=0.01, format="%.4f", key="bin_epsts_input")
 
-    st.sidebar.subheader("Concentration Grid")
+    st.sidebar.subheader("Simulation Grid")
     dphiC = st.sidebar.number_input(
-        "dphiC (step size)",
+        "Δϕᶜ (grid step)",
         min_value=1e-5,
         max_value=0.05,
         step=0.0005,
@@ -578,7 +651,7 @@ if model_type == "Binary Crowding Model":
              "Package default: 0.0001. App default: 0.001 (10× faster).",
     )
     phiC_max = st.sidebar.number_input(
-        "phiC_max (max concentration)",
+        "ϕᶜ max",
         min_value=0.001,
         max_value=1.0,
         step=0.01,
@@ -626,12 +699,12 @@ else:
         },
         help="Overrides cosolute-2 parameters only.",
     )
-    nu2     = st.sidebar.number_input("nu2",     key="nu2",     step=0.01, format="%.4f")
-    chi12   = st.sidebar.number_input("chi12",   key="chi12",   step=0.01, format="%.4f")
-    chiTS12 = st.sidebar.number_input("chiTS12", key="chiTS12", step=0.01, format="%.4f")
+    nu2     = st.sidebar.number_input("ν₂ (excluded volume)",          key="nu2",     step=0.01, format="%.4f")
+    chi12   = st.sidebar.number_input("χ₁₂ (non-ideal mixing)",          key="chi12",   step=0.01, format="%.4f")
+    chiTS12 = st.sidebar.number_input("χₜₛ₁₂ (entropy component)",      key="chiTS12", step=0.01, format="%.4f")
     
-    eps2    = st.sidebar.number_input("eps2",    step=0.01, format="%.4f", key="tern_eps2_input")
-    epsTS2  = st.sidebar.number_input("epsTS2",  step=0.01, format="%.4f", key="tern_epsts2_input")
+    eps2    = st.sidebar.number_input("ε₂ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps2_input")
+    epsTS2  = st.sidebar.number_input("εₜₛ₂ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts2_input")
 
     # --- Cosolute 3 ---
     st.sidebar.subheader("Cosolute 3")
@@ -648,24 +721,27 @@ else:
         },
         help="Overrides cosolute-3 parameters only.",
     )
-    nu3     = st.sidebar.number_input("nu3",     key="nu3",     step=0.01, format="%.4f")
-    chi13   = st.sidebar.number_input("chi13",   key="chi13",   step=0.01, format="%.4f")
-    chiTS13 = st.sidebar.number_input("chiTS13", key="chiTS13", step=0.01, format="%.4f")
+    nu3     = st.sidebar.number_input("ν₃ (excluded volume)",          key="nu3",     step=0.01, format="%.4f")
+    chi13   = st.sidebar.number_input("χ₁₃ (non-ideal mixing)",          key="chi13",   step=0.01, format="%.4f")
+    chiTS13 = st.sidebar.number_input("χₜₛ₁₃ (entropy component)",      key="chiTS13", step=0.01, format="%.4f")
     
-    eps3    = st.sidebar.number_input("eps3",    step=0.01, format="%.4f", key="tern_eps3_input")
-    epsTS3  = st.sidebar.number_input("epsTS3",  step=0.01, format="%.4f", key="tern_epsts3_input")
+    eps3    = st.sidebar.number_input("ε₃ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps3_input")
+    epsTS3  = st.sidebar.number_input("εₜₛ₃ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts3_input")
 
-    # --- Cosolute–cosolute interactions ---
-    st.sidebar.subheader("Cosolute–Cosolute Interactions")
-    chi23   = st.sidebar.number_input("chi23",   key="chi23",   step=0.01, format="%.4f")
-    chiTS23 = st.sidebar.number_input("chiTS23", key="chiTS23", step=0.01, format="%.4f")
-    eps23   = st.sidebar.number_input("eps23",   step=0.01, format="%.4f", key="eps23")
-    epsTS23 = st.sidebar.number_input("epsTS23", step=0.01, format="%.4f", key="epsTS23")
+    # --- Cosolute–cosolute non-ideal mixing ---
+    st.sidebar.subheader("Cosolute–Cosolute Mixing (χ₂₃)")
+    chi23   = st.sidebar.number_input("χ₂₃ (non-ideal mixing)",       key="chi23",   step=0.01, format="%.4f")
+    chiTS23 = st.sidebar.number_input("χₜₛ₂₃ (entropy component)",   key="chiTS23", step=0.01, format="%.4f")
+
+    # --- Synergy parameter (three-body coupling) ---
+    st.sidebar.subheader("Synergy Parameter (ε₂₃)")
+    eps23   = st.sidebar.number_input("ε₂₃ (synergy)",                step=0.01, format="%.4f", key="eps23")
+    epsTS23 = st.sidebar.number_input("εₜₛ₂₃ (entropy component)",   step=0.01, format="%.4f", key="epsTS23")
 
     # --- Concentration grid ---
-    st.sidebar.subheader("Concentration Grid")
+    st.sidebar.subheader("Simulation Grid")
     dphi2 = st.sidebar.number_input(
-        "dphi2 (step size for cosolute 2)",
+        "Δϕ₂ (grid step)",
         min_value=1e-5,
         max_value=0.05,
         step=0.0005,
@@ -674,7 +750,7 @@ else:
         help="Grid step for cosolute 2 axis. Package default: 0.0001. App default: 0.001.",
     )
     dphi3 = st.sidebar.number_input(
-        "dphi3 (step size for cosolute 3)",
+        "Δϕ₃ (grid step)",
         min_value=1e-5,
         max_value=0.05,
         step=0.0005,
@@ -683,7 +759,7 @@ else:
         help="Grid step for cosolute 3 axis. Package default: 0.0001. App default: 0.001.",
     )
     phi2_max = st.sidebar.number_input(
-        "phi2_max (max concentration 2)",
+        "ϕ₂ max",
         min_value=0.001,
         max_value=1.0,
         step=0.01,
@@ -692,7 +768,7 @@ else:
         help="Maximum volume fraction of cosolute 2. Default: 0.15.",
     )
     phi3_max = st.sidebar.number_input(
-        "phi3_max (max concentration 3)",
+        "ϕ₃ max",
         min_value=0.001,
         max_value=1.0,
         step=0.01,
@@ -736,9 +812,12 @@ if st.session_state.get("session_restored"):
 # ---------------------------------------------------------------------------
 # Section 1: Experimental Data Upload (Expandable, at top of page)
 # ---------------------------------------------------------------------------
-st.header("📋 Experimental Data & Fitting Hub")
+styles.section_header("Experimental Data & Fitting Hub", "📋")
 with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", expanded=False):
-    st.markdown("Upload experimental files to fit interaction parameters and overlay on plots.")
+    st.markdown(
+        "Upload your experimental CSV files to fit soft interaction parameters "
+        "($\\varepsilon$, $\\varepsilon_{TS}$) and overlay data on model plots."
+    )
     
     col_u1, col_u2 = st.columns([1, 3])
     with col_u1:
@@ -802,6 +881,11 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
 
         st.markdown("### 📂 Option B: Upload Your Own CSV File(s)")
         if model_type == "Binary Crowding Model":
+            st.caption(
+                "**Binary CSV format:** columns `concentration` (in the unit selected on the left), "
+                "and at least one of `dG` ($\\Delta\\Delta G$), `dH` ($\\Delta\\Delta H$), `TdS` ($T\\Delta\\Delta S$) "
+                "in kJ/mol or kcal/mol. Optional error columns: `err_dG`, `err_dH`, `err_TdS`."
+            )
             upload_mode = st.radio(
                 "Data Upload Format",
                 ["Single CSV File (concentration, dG, dH, TdS)", "Separate CSV Files for dG, dH, TdS"],
@@ -1064,7 +1148,10 @@ with col_sim:
 
 with col_fit:
     st.subheader("🛠️ Parameter Fitting")
-    st.markdown("Calculate soft interaction parameters (`eps` and `epsTS`) from your uploaded experimental dataset.")
+    st.markdown(
+        "Fit soft interaction parameters ($\\varepsilon$, $\\varepsilon_{TS}$) "
+        "to your uploaded experimental dataset."
+    )
     
     if not st.session_state["exp_data_loaded"]:
         st.info("💡 To fit interaction parameters, please upload experimental data files in the section at the top of the page.")
@@ -1088,8 +1175,8 @@ with col_fit:
             
             # Button 1: Fit eps
             with col_b1:
-                st.markdown("**Free Energy Soft Parameter**")
-                fit_eps_btn = st.button("Fit eps (from dG)", key="btn_fit_eps", use_container_width=True)
+                st.markdown("**$\\varepsilon$ — Free Energy Soft Parameter**")
+                fit_eps_btn = st.button("Fit ε (from ΔΔG)", key="btn_fit_eps", use_container_width=True)
                 if fit_eps_btn:
                     if st.session_state.get("exp_ddG") is not None and st.session_state.get("exp_conc_G") is not None:
                         fit_progress = st.progress(0, text="Fitting eps...")
@@ -1132,8 +1219,8 @@ with col_fit:
                         
             # Button 2: Fit epsTS
             with col_b2:
-                st.markdown("**Entropic Soft Parameter**")
-                fit_epsts_btn = st.button("Fit epsTS (from dH, TdS)", key="btn_fit_epsts", use_container_width=True)
+                st.markdown("**$\\varepsilon_{TS}$ — Entropic Soft Parameter**")
+                fit_epsts_btn = st.button("Fit εₜₛ (from ΔΔH, TΔΔS)", key="btn_fit_epsts", use_container_width=True)
                 if fit_epsts_btn:
                     if (st.session_state.get("exp_ddH") is not None and 
                         st.session_state.get("exp_TddS") is not None and 
@@ -1179,12 +1266,20 @@ with col_fit:
                         st.error("Please upload experimental dH and TdS data first!")
                         
             # Display current fitted values
-            st.markdown("### Current Fitted Parameters")
+            st.markdown("### Fitted Parameters")
             col_m1, col_m2 = st.columns(2)
             with col_m1:
-                st.metric("Fitted eps", f"{model.eps:.4f}" if st.session_state["fitted_eps"] is not None else "None")
+                eps_val = f"{model.eps:.4f}" if st.session_state["fitted_eps"] is not None else "—"
+                st.markdown(
+                    styles.param_card("ε", eps_val, "Soft interaction (free energy component)"),
+                    unsafe_allow_html=True
+                )
             with col_m2:
-                st.metric("Fitted epsTS", f"{model.epsTS:.4f}" if st.session_state["fitted_epsTS"] is not None else "None")
+                epsts_val = f"{model.epsTS:.4f}" if st.session_state["fitted_epsTS"] is not None else "—"
+                st.markdown(
+                    styles.param_card("εₜₛ", epsts_val, "Soft interaction (entropy component)"),
+                    unsafe_allow_html=True
+                )
             
             # Download fitted parameters button
             has_fit = st.session_state["fitted_eps"] is not None or st.session_state["fitted_epsTS"] is not None
@@ -1305,14 +1400,24 @@ with col_fit:
                         st.error("Please upload experimental Ternary dH and TdS data first!")
                         
             # Display current fitted values
-            st.markdown("### Current Fitted Parameters")
+            st.markdown("### Fitted Parameters")
             col_m1, col_m2 = st.columns(2)
             with col_m1:
-                st.metric("Fitted eps2", f"{model.eps2:.4f}" if st.session_state["fitted_eps2"] is not None else "None")
-                st.metric("Fitted eps3", f"{model.eps3:.4f}" if st.session_state["fitted_eps3"] is not None else "None")
+                eps2_val = f"{model.eps2:.4f}" if st.session_state["fitted_eps2"] is not None else "—"
+                eps3_val = f"{model.eps3:.4f}" if st.session_state["fitted_eps3"] is not None else "—"
+                st.markdown(
+                    styles.param_card("ε₂", eps2_val, "Cosolute 2 soft interaction") +
+                    styles.param_card("ε₃", eps3_val, "Cosolute 3 soft interaction"),
+                    unsafe_allow_html=True
+                )
             with col_m2:
-                st.metric("Fitted epsTS2", f"{model.epsTS2:.4f}" if st.session_state["fitted_epsTS2"] is not None else "None")
-                st.metric("Fitted epsTS3", f"{model.epsTS3:.4f}" if st.session_state["fitted_epsTS3"] is not None else "None")
+                epsts2_val = f"{model.epsTS2:.4f}" if st.session_state["fitted_epsTS2"] is not None else "—"
+                epsts3_val = f"{model.epsTS3:.4f}" if st.session_state["fitted_epsTS3"] is not None else "—"
+                st.markdown(
+                    styles.param_card("εₜₛ₂", epsts2_val, "Cosolute 2 entropy component") +
+                    styles.param_card("εₜₛ₃", epsts3_val, "Cosolute 3 entropy component"),
+                    unsafe_allow_html=True
+                )
                 
             # Download fitted parameters button
             has_fit = (st.session_state["fitted_eps2"] is not None or 
@@ -1336,7 +1441,7 @@ with col_fit:
 # ---------------------------------------------------------------------------
 if "solved_model" in st.session_state and st.session_state["solved_model_type"] == model_type:
     st.markdown("---")
-    st.header("📈 Visualization & Plots")
+    styles.section_header("Visualization & Plots", "📈")
     
     solved_model = st.session_state["solved_model"]
     
@@ -1529,84 +1634,77 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             if is_potential and x_base != y_base:
                 plot_contrib = st.checkbox("Plot alongside contributions (nu, chi, eps)", value=True)
                 
-            fig, ax = plt.subplots(figsize=(6, 4))
+            # ── Build Plotly figure ──────────────────────────────────────────
+            pfig = go.Figure()
             x_data = getattr(solved_model, x_attr)
-            
+
             if plot_contrib:
+                # Helper: add a Plotly trace
+                def _add_trace(yvals, name, color, dash="solid", width=2):
+                    pfig.add_trace(go.Scatter(
+                        x=x_data, y=yvals, mode="lines", name=name,
+                        line=dict(color=color, width=width, dash=dash),
+                        hovertemplate=f"{name}<br>x=%{{x:.4f}}<br>y=%{{y:.4f}}<extra></extra>"
+                    ))
+
                 if pot_type == "ddA":
-                    if pot_unit == "kJ":
-                        ax.plot(x_data, solved_model.ddA_kj, label="Total Model", color="black", linewidth=2)
-                        ax.plot(x_data, solved_model.ddA_nu_kj, label=r"$\nu$ (Excluded Volume)", linestyle="--")
-                        ax.plot(x_data, solved_model.ddA_chi_kj, label=r"$\chi$ (Non-ideal mixing)", linestyle=":")
-                        ax.plot(x_data, solved_model.ddA_eps_kj, label=r"$\varepsilon$ (Soft interaction)", linestyle="-.")
-                    else:
-                        ax.plot(x_data, solved_model.ddA_kcal, label="Total Model", color="black", linewidth=2)
-                        ax.plot(x_data, solved_model.ddA_nu_kcal, label=r"$\nu$ (Excluded Volume)", linestyle="--")
-                        ax.plot(x_data, solved_model.ddA_chi_kcal, label=r"$\chi$ (Non-ideal mixing)", linestyle=":")
-                        ax.plot(x_data, solved_model.ddA_eps_kcal, label=r"$\varepsilon$ (Soft interaction)", linestyle="-.")
+                    suf = "_kj" if pot_unit == "kJ" else "_kcal"
+                    _add_trace(getattr(solved_model, f"ddA{suf}"),    "Total ΔΔG",           styles.PLOT_TOTAL_COLOR, "solid", 2.5)
+                    _add_trace(getattr(solved_model, f"ddA_nu{suf}"), "ν (Excluded Volume)", styles.PLOT_NU_COLOR,    "dash")
+                    _add_trace(getattr(solved_model, f"ddA_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "dot")
+                    _add_trace(getattr(solved_model, f"ddA_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "dashdot")
                 elif pot_type == "ddE":
-                    if pot_unit == "kJ":
-                        ax.plot(x_data, solved_model.ddE_kj, label="Total Model", color="black", linewidth=2)
-                        ax.plot(x_data, solved_model.ddE_chi_kj, label=r"$\chi$ (Non-ideal mixing)", linestyle=":")
-                        ax.plot(x_data, solved_model.ddE_eps_kj, label=r"$\varepsilon$ (Soft interaction)", linestyle="-.")
-                    else:
-                        ax.plot(x_data, solved_model.ddE_kcal, label="Total Model", color="black", linewidth=2)
-                        ax.plot(x_data, solved_model.ddE_chi_kcal, label=r"$\chi$ (Non-ideal mixing)", linestyle=":")
-                        ax.plot(x_data, solved_model.ddE_eps_kcal, label=r"$\varepsilon$ (Soft interaction)", linestyle="-.")
+                    suf = "_kj" if pot_unit == "kJ" else "_kcal"
+                    _add_trace(getattr(solved_model, f"ddE{suf}"),    "Total ΔΔH",           styles.PLOT_TOTAL_COLOR, "solid", 2.5)
+                    _add_trace(getattr(solved_model, f"ddE_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "dot")
+                    _add_trace(getattr(solved_model, f"ddE_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "dashdot")
                 elif pot_type == "TddS":
-                    if pot_unit == "kJ":
-                        ax.plot(x_data, solved_model.TddS_kj, label="Total Model", color="black", linewidth=2)
-                        ax.plot(x_data, solved_model.TddS_nu_kj, label=r"$\nu$ (Excluded Volume)", linestyle="--")
-                        ax.plot(x_data, solved_model.TddS_chi_kj, label=r"$\chi$ (Non-ideal mixing)", linestyle=":")
-                        ax.plot(x_data, solved_model.TddS_eps_kj, label=r"$\varepsilon$ (Soft interaction)", linestyle="-.")
-                    else:
-                        ax.plot(x_data, solved_model.TddS_kcal, label="Total Model", color="black", linewidth=2)
-                        ax.plot(x_data, solved_model.TddS_nu_kcal, label=r"$\nu$ (Excluded Volume)", linestyle="--")
-                        ax.plot(x_data, solved_model.TddS_chi_kcal, label=r"$\chi$ (Non-ideal mixing)", linestyle=":")
-                        ax.plot(x_data, solved_model.TddS_eps_kcal, label=r"$\varepsilon$ (Soft interaction)", linestyle="-.")
-                ax.legend()
+                    suf = "_kj" if pot_unit == "kJ" else "_kcal"
+                    _add_trace(getattr(solved_model, f"TddS{suf}"),    "Total TΔΔS",          styles.PLOT_TOTAL_COLOR, "solid", 2.5)
+                    _add_trace(getattr(solved_model, f"TddS_nu{suf}"), "ν (Excluded Volume)", styles.PLOT_NU_COLOR,    "dash")
+                    _add_trace(getattr(solved_model, f"TddS_chi{suf}"),"χ (Non-ideal mixing)",styles.PLOT_CHI_COLOR,   "dot")
+                    _add_trace(getattr(solved_model, f"TddS_eps{suf}"),"ε (Soft interaction)",styles.PLOT_EPS_COLOR,   "dashdot")
             else:
                 y_data = getattr(solved_model, y_attr)
-                ax.plot(x_data, y_data, color="black", linewidth=2, label="Model results")
-            # Overlay custom experimental points if requested and applicable
+                pfig.add_trace(go.Scatter(
+                    x=x_data, y=y_data, mode="lines", name="Model",
+                    line=dict(color=styles.PLOT_TOTAL_COLOR, width=2.5),
+                    hovertemplate="Model<br>x=%{x:.4f}<br>y=%{y:.4f}<extra></extra>"
+                ))
+
+            # ── Experimental overlay ────────────────────────────────────────
             if show_exp:
                 exp_x = None
                 exp_y = None
                 err_y = None
                 y_conc = None
                 
-                # Identify dataset and Y-values based on Y-axis attribute
                 if "ddA" in y_attr:
                     exp_y = st.session_state.get("exp_ddG")
                     err_y = st.session_state.get("err_ddG")
                     y_conc = st.session_state.get("exp_conc_G")
                     if "kcal" in y_attr and exp_y is not None:
                         exp_y = exp_y / 4.184
-                        if err_y is not None:
-                            err_y = err_y / 4.184
+                        if err_y is not None: err_y = err_y / 4.184
                 elif "ddE" in y_attr:
                     exp_y = st.session_state.get("exp_ddH")
                     err_y = st.session_state.get("err_ddH")
                     y_conc = st.session_state.get("exp_conc_T")
                     if "kcal" in y_attr and exp_y is not None:
                         exp_y = exp_y / 4.184
-                        if err_y is not None:
-                            err_y = err_y / 4.184
+                        if err_y is not None: err_y = err_y / 4.184
                 elif "TddS" in y_attr:
                     exp_y = st.session_state.get("exp_TddS")
                     err_y = st.session_state.get("err_TddS")
                     y_conc = st.session_state.get("exp_conc_T")
                     if "kcal" in y_attr and exp_y is not None:
                         exp_y = exp_y / 4.184
-                        if err_y is not None:
-                            err_y = err_y / 4.184
-                            
-                # Determine experimental X-values based on X-axis attribute and Y-axis's concentration points
+                        if err_y is not None: err_y = err_y / 4.184
+                        
                 if exp_y is not None and y_conc is not None:
                     if x_attr in ["phiC", "molar", "molal"]:
                         exp_x = convert_exp_conc(
-                            y_conc,
-                            from_type=uploaded_conc_unit,
+                            y_conc, from_type=uploaded_conc_unit,
                             to_type=x_attr if x_attr != "phi" else "phiC",
                             model=solved_model
                         )
@@ -1616,53 +1714,63 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         if ref_g is not None and val_g is not None:
                             sort_idx = np.argsort(ref_g)
                             exp_x = np.interp(y_conc, ref_g[sort_idx], val_g[sort_idx])
-                            if "kcal" in x_attr:
-                                exp_x = exp_x / 4.184
+                            if "kcal" in x_attr: exp_x = exp_x / 4.184
                     elif "ddE" in x_attr:
                         ref_t = st.session_state.get("exp_conc_T")
                         val_h = st.session_state.get("exp_ddH")
                         if ref_t is not None and val_h is not None:
                             sort_idx = np.argsort(ref_t)
                             exp_x = np.interp(y_conc, ref_t[sort_idx], val_h[sort_idx])
-                            if "kcal" in x_attr:
-                                exp_x = exp_x / 4.184
+                            if "kcal" in x_attr: exp_x = exp_x / 4.184
                     elif "TddS" in x_attr:
                         ref_t = st.session_state.get("exp_conc_T")
                         val_s = st.session_state.get("exp_TddS")
                         if ref_t is not None and val_s is not None:
                             sort_idx = np.argsort(ref_t)
                             exp_x = np.interp(y_conc, ref_t[sort_idx], val_s[sort_idx])
-                            if "kcal" in x_attr:
-                                exp_x = exp_x / 4.184
-                                
+                            if "kcal" in x_attr: exp_x = exp_x / 4.184
+                            
                 if exp_y is not None and exp_x is not None:
-                    # Scatter experimental data points
-                    if err_y is not None and not np.all(np.isnan(err_y)):
-                        ax.errorbar(
-                            exp_x, exp_y, yerr=err_y,
-                            fmt='o', color='red', ecolor='red', capsize=4,
-                            label='Experimental', zorder=5
-                        )
-                    else:
-                        ax.scatter(
-                            exp_x, exp_y,
-                            color='red', edgecolor='black', s=45,
-                            label='Experimental', zorder=5
-                        )
-                    ax.legend()
-                    
-            ax.set_xlabel(x_label)
-            ax.set_ylabel(y_label)
-            ax.grid(True, linestyle=":", alpha=0.6)
+                    has_err = err_y is not None and not np.all(np.isnan(
+                        np.array(err_y, dtype=float) if not isinstance(err_y, float) else [err_y]
+                    ))
+                    pfig.add_trace(go.Scatter(
+                        x=exp_x, y=exp_y, mode="markers", name="Experimental",
+                        marker=dict(
+                            color=styles.PLOT_EXP_COLOR, size=9,
+                            symbol="circle", line=dict(color="white", width=1.5)
+                        ),
+                        error_y=dict(
+                            type="data", array=list(err_y) if has_err else None, visible=has_err,
+                            color=styles.PLOT_EXP_COLOR, thickness=1.5, width=4
+                        ) if has_err else None,
+                        hovertemplate="Experimental<br>x=%{x:.4f}<br>y=%{y:.4f}<extra></extra>"
+                    ))
+
+            pfig.update_layout(
+                xaxis_title=x_label,
+                yaxis_title=y_label,
+                plot_bgcolor="white",
+                paper_bgcolor="white",
+                legend=dict(
+                    orientation="v", x=1.02, xanchor="left",
+                    bgcolor="rgba(255,255,255,0.8)",
+                    bordercolor="#dde3e8", borderwidth=1
+                ),
+                margin=dict(l=60, r=20, t=30, b=60),
+                font=dict(family="Inter, DejaVu Sans", size=12),
+                xaxis=dict(showgrid=True, gridcolor="#e8edf2", gridwidth=0.5, zeroline=False),
+                yaxis=dict(showgrid=True, gridcolor="#e8edf2", gridwidth=0.5, zeroline=False),
+            )
             try:
-                _display_and_export_plot(fig, "fh_crowding_binary_custom_plot", "bin_custom_plot")
+                _display_and_export_plotly(pfig, "fh_crowding_binary_custom_plot", "bin_custom_plot")
             except Exception as e:
                 st.error(f"Error rendering custom 1D plot: {e}")
             
         else: # Ternary Custom Plot
             st.subheader("Custom Ternary Plotting")
             
-            tern_mode = st.radio("Plot Type", ["2D Contour Plot", "1D Slice Plot"])
+            tern_mode = st.radio("Plot Type", ["2D Contour Plot", "1D Slice Plot", "3D Surface Plot"])
             
             properties_contour = {
                 "Free Energy (ddG) [kT]": ("ddG", r"$\Delta\Delta G^0 / (k_B T)$"),
@@ -1732,16 +1840,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     axes[1,1].set_title(rf"$\varepsilon$ Contribution")
                     fig.colorbar(cp, ax=axes[1,1])
                     
-                    # Overlay Ternary Experimental Points on Subplots if requested
-                    if show_exp and st.session_state.get("exp_conc2") is not None:
-                        exp_x_phi = convert_exp_conc(st.session_state["exp_conc2"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
-                        exp_y_phi = convert_exp_conc(st.session_state["exp_conc3"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3"])
-                        for row in axes:
-                            for ax in row:
-                                # overlay only on contour axes
-                                if ax.get_xlabel() == "":
-                                    ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=25, label='Experimental', zorder=10)
-                    
+                    # 2D contour: no experimental scatter overlays
+                    # (use the 3D Surface Plot mode to compare model vs. experimental data)
                     for ax_row in axes:
                         for ax in ax_row:
                             ax.set_xlabel(r"$\phi_2$")
@@ -1758,20 +1858,137 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     ax.set_xlabel(r"$\phi_2$")
                     ax.set_ylabel(r"$\phi_3$")
                     ax.set_title(z_label)
-                    fig.colorbar(cp)
-                    
-                    # Overlay experimental points on single contour
-                    if show_exp and is_potential and st.session_state.get("exp_conc2") is not None:
-                        exp_x_phi = convert_exp_conc(st.session_state["exp_conc2"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
-                        exp_y_phi = convert_exp_conc(st.session_state["exp_conc3"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3"])
-                        ax.scatter(exp_x_phi, exp_y_phi, color='red', edgecolor='white', s=45, label='Experimental', zorder=10)
-                        ax.legend()
-                        
+                    fig.colorbar(cp, label=z_label)
+                    # 2D contour: no experimental scatter overlays
+                    # (use the 3D Surface Plot mode to compare model vs. experimental data)
                     try:
                         _display_and_export_plot(fig, "fh_crowding_ternary_contour_plot", "tern_contour_plot")
                     except Exception as e:
                         st.error(f"Error rendering custom 2D contour plot: {e}")
                     
+            elif tern_mode == "3D Surface Plot":  # 3D Surface Plot
+                st.write(
+                    "Interactive 3D plot: model surface over the ϕ₂–ϕ₃ grid. "
+                    "When experimental data is loaded, data points are overlaid as red scatter."
+                )
+
+                # Properties available for 3D surface (thermodynamic potentials only)
+                props_3d = {
+                    "Free Energy (ΔΔG) [kJ/mol]":    ("ddG_kJ",  "ΔΔG⁰ [kJ/mol]",  "exp_val_G"),
+                    "Enthalpy (ΔΔH) [kJ/mol]":       ("ddH_kJ",  "ΔΔH⁰ [kJ/mol]",  "exp_val_H"),
+                    "Entropy (TΔΔS) [kJ/mol]":        ("TddS_kJ", "TΔΔS⁰ [kJ/mol]", "exp_val_S"),
+                    "Free Energy (ΔΔG) [kT]":         ("ddG",     "ΔΔG⁰ / kBT",     "exp_val_G"),
+                    "Enthalpy (ΔΔH) [kT]":            ("ddH",     "ΔΔH⁰ / kBT",     "exp_val_H"),
+                    "Entropy (TΔΔS) [kT]":            ("TddS",    "TΔΔS⁰ / kBT",    "exp_val_S"),
+                }
+                z3d_name = st.selectbox("Property (Z-axis)", list(props_3d.keys()), key="tern_3d_prop")
+                z3d_attr, z3d_label, exp_val_key = props_3d[z3d_name]
+                is_kJ = "_kJ" in z3d_attr
+                kJ_factor = 1.0  # model already in kJ; no conversion needed
+
+                # Build Plotly figure
+                z_surface = getattr(solved_model, z3d_attr)
+                pfig3d = go.Figure()
+
+                # Model surface
+                pfig3d.add_trace(go.Surface(
+                    x=solved_model.phi2,
+                    y=solved_model.phi3,
+                    z=z_surface,
+                    colorscale="Viridis",
+                    opacity=0.65,
+                    name="Model surface",
+                    colorbar=dict(title=z3d_label, thickness=14, len=0.7),
+                    showscale=True,
+                    hovertemplate="ϕ₂=%{x:.3f}<br>ϕ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Model</extra>",
+                ))
+
+                # Binary edge lines: cosolute-2 axis (phi3 = 0) and cosolute-3 axis (phi2 = 0)
+                # These come from the first row/column of the ternary grid (phi3~0 and phi2~0)
+                try:
+                    phi2_axis_3d = solved_model.phi2[0, :]
+                    phi3_axis_3d = solved_model.phi3[:, 0]
+
+                    # Edge along phi3 = 0 (cosolute-2 axis)
+                    z_edge2 = z_surface[0, :]
+                    pfig3d.add_trace(go.Scatter3d(
+                        x=phi2_axis_3d, y=np.zeros_like(phi2_axis_3d), z=z_edge2,
+                        mode="lines", name="ϕ₃ = 0 (cosolute 2 axis)",
+                        line=dict(color=styles.PLOT_NU_COLOR, width=5),
+                        hovertemplate="ϕ₂=%{x:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>ϕ₃=0</extra>",
+                    ))
+
+                    # Edge along phi2 = 0 (cosolute-3 axis)
+                    z_edge3 = z_surface[:, 0]
+                    pfig3d.add_trace(go.Scatter3d(
+                        x=np.zeros_like(phi3_axis_3d), y=phi3_axis_3d, z=z_edge3,
+                        mode="lines", name="ϕ₂ = 0 (cosolute 3 axis)",
+                        line=dict(color=styles.PLOT_CHI_COLOR, width=5),
+                        hovertemplate="ϕ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>ϕ₂=0</extra>",
+                    ))
+                except Exception:
+                    pass  # Edge lines are optional
+
+                # Experimental scatter
+                has_exp_3d = (
+                    st.session_state.get("exp_conc2") is not None and
+                    st.session_state.get(exp_val_key) is not None
+                )
+                if has_exp_3d:
+                    exp_phi2 = convert_exp_conc(
+                        st.session_state["exp_conc2"],
+                        from_type=uploaded_conc_unit, to_type="phiC",
+                        model=solved_model, is_ternary=True, cosolute_idx=2
+                    )
+                    exp_phi3 = convert_exp_conc(
+                        st.session_state["exp_conc3"],
+                        from_type=uploaded_conc_unit, to_type="phiC",
+                        model=solved_model, is_ternary=True, cosolute_idx=3,
+                        exp_conc3=st.session_state["exp_conc3"]
+                    )
+                    exp_z = np.array(st.session_state[exp_val_key], dtype=float)
+                    # Convert kcal→kJ if model axis is kJ
+                    if is_kJ and uploaded_energy_unit == "kcal/mol":
+                        exp_z = exp_z  # already converted by energy_mult on load
+                    # Convert to kT if needed
+                    if not is_kJ:
+                        # kT version: divide by kBT in kJ/mol = R*T/1000? No: model uses kBT
+                        # exp_z is in kJ/mol; kBT at T K = 0.008314*T kJ/mol
+                        kBT = 0.008314472 * T
+                        exp_z = exp_z / kBT
+
+                    pfig3d.add_trace(go.Scatter3d(
+                        x=exp_phi2, y=exp_phi3, z=exp_z,
+                        mode="markers", name="Experimental",
+                        marker=dict(
+                            color=styles.PLOT_EXP_COLOR, size=6,
+                            symbol="circle", line=dict(color="white", width=1)
+                        ),
+                        hovertemplate="ϕ₂=%{x:.3f}<br>ϕ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Experimental</extra>",
+                    ))
+                elif show_exp:
+                    st.info("Upload experimental data (ΔΔG / ΔΔH / TΔΔS with concentrations) to overlay scatter points.")
+
+                pfig3d.update_layout(
+                    scene=dict(
+                        xaxis_title="ϕ₂",
+                        yaxis_title="ϕ₃",
+                        zaxis_title=z3d_label,
+                        bgcolor="rgb(250,252,255)",
+                    ),
+                    margin=dict(l=0, r=0, t=30, b=0),
+                    font=dict(family="Inter, DejaVu Sans", size=12),
+                    legend=dict(
+                        x=0.01, y=0.99, bgcolor="rgba(255,255,255,0.85)",
+                        bordercolor="#dde3e8", borderwidth=1
+                    ),
+                    height=600,
+                )
+                try:
+                    _display_and_export_plotly(pfig3d, "fh_crowding_ternary_3d_surface", "tern_3d_surface")
+                except Exception as e:
+                    st.error(f"Error rendering 3D surface plot: {e}")
+
             else: # 1D Slice Plot
                 st.write("Slices through the 2D concentration space to make 1D plots.")
                 
