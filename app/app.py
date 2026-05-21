@@ -6,11 +6,15 @@ from io import StringIO
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.io as pio
-import fh_crowding
 import sys
 import base64
 from pathlib import Path
+
+# Ensure local directories are in path for Streamlit Cloud
 sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent / "src"))
+
+import fh_crowding
 import session_io
 import export
 import styles
