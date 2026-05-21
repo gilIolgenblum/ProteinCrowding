@@ -700,7 +700,6 @@ if model_type == "Binary Crowding Model":
         "Δϕᶜ (grid step)",
         min_value=1e-5,
         max_value=0.05,
-        value=st.session_state["bin_dphiC"],
         step=0.0005,
         format="%.5f",
         key="bin_dphiC",
@@ -711,7 +710,6 @@ if model_type == "Binary Crowding Model":
         "ϕᶜ max",
         min_value=0.001,
         max_value=1.0,
-        value=st.session_state["bin_phiC_max"],
         step=0.01,
         format="%.3f",
         key="bin_phiC_max",
@@ -802,7 +800,6 @@ else:
         "Δϕ₂ (grid step)",
         min_value=1e-5,
         max_value=0.05,
-        value=st.session_state["tern_dphi2"],
         step=0.0005,
         format="%.5f",
         key="tern_dphi2",
@@ -812,7 +809,6 @@ else:
         "Δϕ₃ (grid step)",
         min_value=1e-5,
         max_value=0.05,
-        value=st.session_state["tern_dphi3"],
         step=0.0005,
         format="%.5f",
         key="tern_dphi3",
@@ -822,7 +818,6 @@ else:
         "ϕ₂ max",
         min_value=0.001,
         max_value=1.0,
-        value=st.session_state["tern_phi2_max"],
         step=0.01,
         format="%.3f",
         key="tern_phi2_max",
@@ -832,7 +827,6 @@ else:
         "ϕ₃ max",
         min_value=0.001,
         max_value=1.0,
-        value=st.session_state["tern_phi3_max"],
         step=0.01,
         format="%.3f",
         key="tern_phi3_max",
@@ -950,12 +944,12 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             )
             upload_mode = st.radio(
                 "Data Upload Format",
-                ["Single CSV File (concentration, dG, dH, TdS)", "Separate CSV Files for dG, dH, TdS"],
+                ["Single CSV File (concentration, ΔG, ΔH, TΔS)", "Separate CSV Files for ΔG, ΔH, TΔS"],
                 key="bin_upload_mode",
                 horizontal=True
             )
             
-            if upload_mode == "Single CSV File (concentration, dG, dH, TdS)":
+            if upload_mode == "Single CSV File (concentration, ΔG, ΔH, TΔS)":
                 f = st.file_uploader("Upload Single CSV File", type=["csv"], key="bin_single_uploader")
                 if f:
                     try:
@@ -1018,17 +1012,17 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             else:
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
-                    f_G = st.file_uploader("Upload dG CSV (concentration, dG)", type=["csv"], key="bin_g_uploader")
+                    f_G = st.file_uploader("Upload ΔG CSV (concentration, ΔG)", type=["csv"], key="bin_g_uploader")
                 with col_f2:
-                    f_H = st.file_uploader("Upload dH CSV (concentration, dH)", type=["csv"], key="bin_h_uploader")
+                    f_H = st.file_uploader("Upload ΔH CSV (concentration, ΔH)", type=["csv"], key="bin_h_uploader")
                 with col_f3:
-                    f_S = st.file_uploader("Upload TdS CSV (concentration, TdS)", type=["csv"], key="bin_s_uploader")
+                    f_S = st.file_uploader("Upload TΔS CSV (concentration, TΔS)", type=["csv"], key="bin_s_uploader")
                 
                 if f_G:
                     try:
                         df = read_uploaded_csv(f_G)
                         if "concentration" not in df.columns or "dG" not in df.columns:
-                            st.error(f"Missing required columns for dG. Expected: 'concentration', 'dG'.\n\nDetected columns: {list(df.columns)}")
+                            st.error(f"Missing required columns for ΔG. Expected: 'concentration', 'dG'.\n\nDetected columns: {list(df.columns)}")
                         else:
                             df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
                             df["dG"] = pd.to_numeric(df["dG"], errors='coerce')
@@ -1040,15 +1034,15 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             st.session_state["raw_err_ddG"] = df["err_dG"].values if "err_dG" in df.columns else np.nan
                             st.session_state["err_ddG"] = (df["err_dG"].values * energy_mult) if "err_dG" in df.columns else np.nan
                             st.session_state["exp_data_loaded"] = True
-                            st.success("dG experimental data loaded!")
+                            st.success("ΔG experimental data loaded!")
                     except Exception as ex:
-                        st.error(f"Error reading dG CSV file: {ex}")
+                        st.error(f"Error reading ΔG CSV file: {ex}")
                         
                 if f_H:
                     try:
                         df = read_uploaded_csv(f_H)
                         if "concentration" not in df.columns or "dH" not in df.columns:
-                            st.error(f"Missing required columns for dH. Expected: 'concentration', 'dH'.\n\nDetected columns: {list(df.columns)}")
+                            st.error(f"Missing required columns for ΔH. Expected: 'concentration', 'dH'.\n\nDetected columns: {list(df.columns)}")
                         else:
                             df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
                             df["dH"] = pd.to_numeric(df["dH"], errors='coerce')
@@ -1060,15 +1054,15 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             st.session_state["raw_err_ddH"] = df["err_dH"].values if "err_dH" in df.columns else np.nan
                             st.session_state["err_ddH"] = (df["err_dH"].values * energy_mult) if "err_dH" in df.columns else np.nan
                             st.session_state["exp_data_loaded"] = True
-                            st.success("dH experimental data loaded!")
+                            st.success("ΔH experimental data loaded!")
                     except Exception as ex:
-                        st.error(f"Error reading dH CSV file: {ex}")
+                        st.error(f"Error reading ΔH CSV file: {ex}")
                         
                 if f_S:
                     try:
                         df = read_uploaded_csv(f_S)
                         if "concentration" not in df.columns or "TdS" not in df.columns:
-                            st.error(f"Missing required columns for TdS. Expected: 'concentration', 'TdS'.\n\nDetected columns: {list(df.columns)}")
+                            st.error(f"Missing required columns for TΔS. Expected: 'concentration', 'TdS'.\n\nDetected columns: {list(df.columns)}")
                         else:
                             df["concentration"] = pd.to_numeric(df["concentration"], errors='coerce')
                             df["TdS"] = pd.to_numeric(df["TdS"], errors='coerce')
@@ -1080,9 +1074,9 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             st.session_state["raw_err_TddS"] = df["err_TdS"].values if "err_TdS" in df.columns else np.nan
                             st.session_state["err_TddS"] = (df["err_TdS"].values * energy_mult) if "err_TdS" in df.columns else np.nan
                             st.session_state["exp_data_loaded"] = True
-                            st.success("TdS experimental data loaded!")
+                            st.success("TΔS experimental data loaded!")
                     except Exception as ex:
-                        st.error(f"Error reading TdS CSV file: {ex}")
+                        st.error(f"Error reading TΔS CSV file: {ex}")
         else: # Ternary
             upload_mode = st.radio(
                 "Data Upload Format",
@@ -1119,9 +1113,9 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             st.session_state["raw_exp_val_G"] = df["dG"].values
                             st.session_state["exp_val_G"] = df["dG"].values * energy_mult
                             st.session_state["exp_data_loaded"] = True
-                            st.success("Ternary dG data loaded!")
+                            st.success("Ternary ΔG data loaded!")
                     except Exception as ex:
-                        st.error(f"Error reading dG CSV file: {ex}")
+                        st.error(f"Error reading ΔG CSV file: {ex}")
                 if f_H:
                     try:
                         df = read_uploaded_csv(f_H)
@@ -1141,9 +1135,9 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             st.session_state["raw_exp_val_H"] = df["dH"].values
                             st.session_state["exp_val_H"] = df["dH"].values * energy_mult
                             st.session_state["exp_data_loaded"] = True
-                            st.success("Ternary dH data loaded!")
+                            st.success("Ternary ΔH data loaded!")
                     except Exception as ex:
-                        st.error(f"Error reading dH CSV file: {ex}")
+                        st.error(f"Error reading ΔH CSV file: {ex}")
                 if f_S:
                     try:
                         df = read_uploaded_csv(f_S)
@@ -1163,9 +1157,9 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                             st.session_state["raw_exp_val_S"] = df["TdS"].values
                             st.session_state["exp_val_S"] = df["TdS"].values * energy_mult
                             st.session_state["exp_data_loaded"] = True
-                            st.success("Ternary TdS data loaded!")
+                            st.success("Ternary TΔS data loaded!")
                     except Exception as ex:
-                        st.error(f"Error reading TdS CSV file: {ex}")
+                        st.error(f"Error reading TΔS CSV file: {ex}")
             else:
                 st.info("Matrix formats are typically fitted via columns. Please ensure CSV contains 'conc2', 'conc3' and data columns.")
 
@@ -1264,7 +1258,7 @@ with col_fit:
                             ddG = np.array(st.session_state["exp_ddG"])
                             valid_idx = np.isfinite(conc_G) & np.isfinite(ddG)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dG data points to fit.")
+                                raise ValueError("No valid non-NaN experimental ΔG data points to fit.")
                             # Run fit
                             model.fit_eps(
                                 conc_G[valid_idx],
@@ -1293,7 +1287,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental dG data first!")
+                        st.error("Please upload experimental ΔG data first!")
                         
             # Button 2: Fit epsTS
             with col_b2:
@@ -1311,7 +1305,7 @@ with col_fit:
                             TddS = np.array(st.session_state["exp_TddS"])
                             valid_idx = np.isfinite(conc_T) & np.isfinite(ddH) & np.isfinite(TddS)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dH/TdS data points to fit.")
+                                raise ValueError("No valid non-NaN experimental ΔH/TΔS data points to fit.")
                             # Run fit
                             model.fit_epsTS(
                                 conc_T[valid_idx],
@@ -1341,7 +1335,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental dH and TdS data first!")
+                        st.error("Please upload experimental ΔH and TΔS data first!")
                         
             # Display current fitted values
             st.markdown("### Fitted Parameters")
@@ -1395,7 +1389,7 @@ with col_fit:
                                 raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, but dG has length {len(val_G)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc3 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dG data points with phi3 <= 0.0011 to fit eps2.")
+                                raise ValueError("No valid non-NaN experimental ΔG data points with phi3 <= 0.0011 to fit eps2.")
                             
                             model.fit_eps(
                                 conc2[valid_idx],
@@ -1425,7 +1419,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental Ternary dG data first!")
+                        st.error("Please upload experimental Ternary ΔG data first!")
                 
                 # Fit eps3
                 fit_eps3_btn = st.button("Fit ε₃ (phi2 = 0)", key="btn_fit_eps3", use_container_width=True)
@@ -1442,7 +1436,7 @@ with col_fit:
                                 raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, but dG has length {len(val_G)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G) & (conc2 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dG data points with phi2 <= 0.0011 to fit eps3.")
+                                raise ValueError("No valid non-NaN experimental ΔG data points with phi2 <= 0.0011 to fit eps3.")
                             
                             model.fit_eps(
                                 conc2[valid_idx],
@@ -1472,7 +1466,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental Ternary dG data first!")
+                        st.error("Please upload experimental Ternary ΔG data first!")
  
                 # Fit eps23
                 eps23_enabled = (st.session_state.get("fitted_eps2") is not None and 
@@ -1497,7 +1491,7 @@ with col_fit:
                                 raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, but dG has length {len(val_G)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_G)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dG data points to fit eps23.")
+                                raise ValueError("No valid non-NaN experimental ΔG data points to fit eps23.")
                             
                             # Keep previously fitted eps2 and eps3 constant
                             model.eps2 = st.session_state["fitted_eps2"]
@@ -1531,7 +1525,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental Ternary dG data first!")
+                        st.error("Please upload experimental Ternary ΔG data first!")
             
             # Column 2: Fit epsTS
             with col_t2:
@@ -1554,7 +1548,7 @@ with col_fit:
                                 raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, dH has length {len(val_H)}, and TdS has length {len(val_S)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc3 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi3 <= 0.0011 to fit epsTS2.")
+                                raise ValueError("No valid non-NaN experimental ΔH/TΔS data points with phi3 <= 0.0011 to fit epsTS2.")
                             
                             model.fit_epsTS(
                                 conc2[valid_idx],
@@ -1585,7 +1579,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental Ternary dH and TdS data first!")
+                        st.error("Please upload experimental Ternary ΔH and TΔS data first!")
 
                 # Fit epsTS3
                 fit_epsts3_btn = st.button("Fit εₜₛ₃ (phi2 = 0)", key="btn_fit_epsts3", use_container_width=True)
@@ -1604,7 +1598,7 @@ with col_fit:
                                 raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, dH has length {len(val_H)}, and TdS has length {len(val_S)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S) & (conc2 <= 0.0011)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dH/TdS data points with phi2 <= 0.0011 to fit epsTS3.")
+                                raise ValueError("No valid non-NaN experimental ΔH/TΔS data points with phi2 <= 0.0011 to fit epsTS3.")
                             
                             model.fit_epsTS(
                                 conc2[valid_idx],
@@ -1635,7 +1629,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental Ternary dH and TdS data first!")
+                        st.error("Please upload experimental Ternary ΔH and TΔS data first!")
 
                 # Fit epsTS23
                 epsts23_enabled = (st.session_state.get("fitted_epsTS2") is not None and 
@@ -1662,7 +1656,7 @@ with col_fit:
                                 raise ValueError(f"Mismatched shapes: concentration arrays have lengths {len(conc2)} and {len(conc3)}, dH has length {len(val_H)}, and TdS has length {len(val_S)}.")
                             valid_idx = np.isfinite(conc2) & np.isfinite(conc3) & np.isfinite(val_H) & np.isfinite(val_S)
                             if not np.any(valid_idx):
-                                raise ValueError("No valid non-NaN experimental dH/TdS data points to fit epsTS23.")
+                                raise ValueError("No valid non-NaN experimental ΔH/TΔS data points to fit epsTS23.")
                             
                             # Keep previously fitted epsTS2 and epsTS3 constant
                             model.epsTS2 = st.session_state["fitted_epsTS2"]
@@ -1697,7 +1691,7 @@ with col_fit:
                         except Exception as e:
                             st.error(f"Fitting error: {e}")
                     else:
-                        st.error("Please upload experimental Ternary dH and TdS data first!")
+                        st.error("Please upload experimental Ternary ΔH and TΔS data first!")
                         
             # Display current fitted values
             st.markdown("### Fitted Parameters")
@@ -1809,16 +1803,16 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             preset_plot = st.selectbox(
                 "Select Standard Plot",
                 [
-                    "ddG (3x3 contour)",
+                    "ΔΔG (3x3 contour)",
                     "phiS (Contours of subdomain concentrations)",
                     "Ms (Contours of subdomain volume fractions)",
                     "mus2 (Contours of subdomain 2 chemical potentials)",
                     "mus3 (Contours of subdomain 3 chemical potentials)",
-                    "TdS_mix (Contours of mixing entropy)",
-                    "dG_mix (Contours of mixing free energy)",
-                    "ddG_mu (Contours of ddG chemical potentials)",
-                    "TddS (Contours of TddS entropy)",
-                    "ddH (Contours of ddH enthalpy)",
+                    "TΔS_mix (Contours of mixing entropy)",
+                    "ΔG_mix (Contours of mixing free energy)",
+                    "ΔΔG_mu (Contours of ΔΔG chemical potentials)",
+                    "TΔΔS (Contours of TΔΔS entropy)",
+                    "ΔΔH (Contours of ΔΔH enthalpy)",
                     "Gamma (Contours of preferential interaction coefficients)",
                     "Gamma_mu (Contours of preferential interaction mu)",
                     "Gamma_mu_der (Contours of preferential interaction derivatives)"
@@ -1826,7 +1820,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             )
             plotter = fh_crowding.TernaryPlotter(solved_model)
             
-            if "ddG (3x3 contour)" in preset_plot:
+            if "ΔΔG (3x3 contour)" in preset_plot:
                 fig = plotter.plot_ddG()
             elif "phiS" in preset_plot:
                 fig = plotter.plot_phiS()
@@ -1855,9 +1849,9 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 
             # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
             # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
-            is_fold_preset = any(p in preset_plot for p in ["ddG (3x3 contour)", "TddS", "ddH"])
+            is_fold_preset = any(p in preset_plot for p in ["ΔΔG (3x3 contour)", "TddS", "ddH"])
             if show_exp and is_fold_preset:
-                is_G = "ddG" in preset_plot
+                is_G = "ΔΔG" in preset_plot
                 c2_key = "exp_conc2_G" if is_G else "exp_conc2_T"
                 c3_key = "exp_conc3_G" if is_G else "exp_conc3_T"
                 if st.session_state.get(c2_key) is not None:
@@ -2087,12 +2081,12 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             # latex_label → matplotlib (contour, slice) where LaTeX renders natively
             # unicode_label → 3D Plotly (WebGL) where MathJax cannot render
             properties_contour = {
-                "Free Energy (ddG) [kT]": ("ddG", r'$\Delta\Delta G^{0} / (k_B T)$', "ΔΔG⁰ / (k_B T)"),
-                "Free Energy (ddG) [kJ]": ("ddG_kJ", r'$\Delta\Delta G^{0}\ \mathrm{[kJ/mol]}$', "ΔΔG⁰ [kJ/mol]"),
-                "Enthalpy (ddH) [kT]": ("ddH", r'$\Delta\Delta H^{0} / (k_B T)$', "ΔΔH⁰ / (k_B T)"),
-                "Enthalpy (ddH) [kJ]": ("ddH_kJ", r'$\Delta\Delta H^{0}\ \mathrm{[kJ/mol]}$', "ΔΔH⁰ [kJ/mol]"),
-                "Entropy (TddS) [kT]": ("TddS", r'$T\Delta\Delta S^{0} / (k_B T)$', "TΔΔS⁰ / (k_B T)"),
-                "Entropy (TddS) [kJ]": ("TddS_kJ", r'$T\Delta\Delta S^{0}\ \mathrm{[kJ/mol]}$', "TΔΔS⁰ [kJ/mol]"),
+                "Free Energy (ΔΔG) [kT]": ("ddG", r'$\Delta\Delta G^{0} / (k_B T)$', "ΔΔG⁰ / (k_B T)"),
+                "Free Energy (ΔΔG) [kJ]": ("ddG_kJ", r'$\Delta\Delta G^{0}\ \mathrm{[kJ/mol]}$', "ΔΔG⁰ [kJ/mol]"),
+                "Enthalpy (ΔΔH) [kT]": ("ddH", r'$\Delta\Delta H^{0} / (k_B T)$', "ΔΔH⁰ / (k_B T)"),
+                "Enthalpy (ΔΔH) [kJ]": ("ddH_kJ", r'$\Delta\Delta H^{0}\ \mathrm{[kJ/mol]}$', "ΔΔH⁰ [kJ/mol]"),
+                "Entropy (TΔΔS) [kT]": ("TddS", r'$T\Delta\Delta S^{0} / (k_B T)$', "TΔΔS⁰ / (k_B T)"),
+                "Entropy (TΔΔS) [kJ]": ("TddS_kJ", r'$T\Delta\Delta S^{0}\ \mathrm{[kJ/mol]}$', "TΔΔS⁰ [kJ/mol]"),
                 "Osmotic Pressure": ("osm", r'$\Pi\ \mathrm{(Osmolal)}$', "Π (Osmolal)"),
                 "Preferential Interaction 2 (Gamma_2)": ("Gamma_2", r'$\Delta\Gamma_2$', "ΔΓ₂"),
                 "Preferential Interaction 3 (Gamma_3)": ("Gamma_3", r'$\Delta\Gamma_3$', "ΔΓ₃"),
