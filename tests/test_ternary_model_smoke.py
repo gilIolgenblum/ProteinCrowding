@@ -9,9 +9,7 @@ def test_ternary_model_smoke():
     cosolutes = CosoluteMixture(
         nu2=1.0, nu3=1.0,
         chi12=0.1, chi13=0.1, chi23=0.0,
-        chiTS12=-0.05, chiTS13=-0.05, chiTS23=0.0,
-        phi2_max=0.1, phi3_max=0.1,  # Keep grid extremely small
-        dphi2=0.05, dphi3=0.05       # Coarse step
+        chiTS12=-0.05, chiTS13=-0.05, chiTS23=0.0
     )
     
     # Initialize model
@@ -20,6 +18,8 @@ def test_ternary_model_smoke():
         cosolutes=cosolutes,
         eps2=0.0, eps3=0.0, eps23=0.0,
         epsTS2=0.0, epsTS3=0.0, epsTS23=0.0,
+        phi2_max=0.1, phi3_max=0.1,  # Keep grid extremely small
+        dphi2=0.05, dphi3=0.05,      # Coarse step
         T=298.15
     )
     

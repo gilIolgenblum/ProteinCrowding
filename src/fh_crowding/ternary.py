@@ -161,7 +161,7 @@ class TernaryCrowdingModel(CosoluteMixture):
    
     def cal_ddG_nu(self):
         ''' Calculate the excluded volume folding free energy '''
-        return self.phi1s-self.phi1+self.phi1s*np.log(self.phi1)-self.phi1s2*self.Ms2_Ms*np.log(self.phi1s2)-self.phi1s3*self.Ms3_Ms*np.log(self.phi1s3)+ 1/self.nu2*( self.phi2s-self.phi2+self.phi2s*np.log(self.phi2)-self.phi2s2*self.Ms2_Ms*np.log(self.phi2s2)-self.phi2s3*self.Ms3_Ms*np.log(self.phi2s3) ) + 1/self.nu3*( self.phi3s-self.phi3+self.phi3s*np.log(self.phi3)-self.phi3s3*self.Ms3_Ms*np.log(self.phi3s3) ) 
+        return self.phi1s-self.phi1+self.phi1s*self._log(self.phi1)-self.phi1s2*self.Ms2_Ms*self._log(self.phi1s2)-self.phi1s3*self.Ms3_Ms*self._log(self.phi1s3)+ 1/self.nu2*( self.phi2s-self.phi2+self.phi2s*self._log(self.phi2)-self.phi2s2*self.Ms2_Ms*self._log(self.phi2s2)-self.phi2s3*self.Ms3_Ms*self._log(self.phi2s3) ) + 1/self.nu3*( self.phi3s-self.phi3+self.phi3s*self._log(self.phi3)-self.phi3s3*self.Ms3_Ms*self._log(self.phi3s3) ) 
         
     def cal_ddG_chi(self):
         ''' Calculate the non-ideal folding free energy '''
