@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import fh_crowding
 import sys
+import base64
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 import session_io
@@ -527,20 +528,35 @@ if st.session_state.get("fit_updated"):
 # ---------------------------------------------------------------------------
 # Sidebar — common
 # ---------------------------------------------------------------------------
-st.markdown(
-    """
-    <div style="margin-bottom:0.3rem;">
-      <h1 style="font-size:1.7rem; font-weight:700; color:#2C3E50; margin-bottom:0.1rem;">
-        FH Crowding Thermodynamic Model
-      </h1>
-      <p style="font-size:0.87rem; color:#5D7A8A; margin-top:0;">
-        Flory–Huggins model for protein–cosolute crowding thermodynamics.
-        Choose a mode below to simulate or fit experimental data.
-      </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+LOGO_PATH = Path(__file__).parent / "logo.png"
+logo_b64 = None
+if LOGO_PATH.exists():
+    with open(LOGO_PATH, "rb") as f:
+        logo_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+logo_col, title_col = st.columns([1, 6])
+
+with logo_col:
+    if logo_b64:
+        # Added negative margin to vertically align with the title nicely
+        st.markdown("<div style='margin-top: 0.5rem;'></div>", unsafe_allow_html=True)
+        st.markdown(f'<img src="data:image/png;base64,{logo_b64}" width="100" style="object-fit: contain;">', unsafe_allow_html=True)
+
+with title_col:
+    st.markdown(
+        """
+        <div style="margin-bottom:0.3rem;">
+          <h1 style="font-size:1.7rem; font-weight:700; color:#2C3E50; margin-bottom:0.1rem; margin-top:0;">
+            FH Crowding Thermodynamic Model
+          </h1>
+          <p style="font-size:0.87rem; color:#5D7A8A; margin-top:0;">
+            Flory–Huggins model for protein–cosolute crowding thermodynamics.
+            Choose a mode below to simulate or fit experimental data.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 styles.workflow_banner()
 
 st.sidebar.markdown(
