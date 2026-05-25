@@ -2531,8 +2531,12 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         c3_key = None
                         
                     if exp_val is not None and st.session_state.get(c2_key) is not None:
+                        exp_val = np.array(exp_val, dtype=float)
                         if "kcal" in y_attr:
                             exp_val = exp_val / 4.184
+                        elif "kj" not in y_attr.lower():
+                            kBT = 0.008314472 * T
+                            exp_val = exp_val / kBT
                         # Convert exp concentrations to volume fractions
                         exp_x_phi = convert_exp_conc(st.session_state[c2_key], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
                         exp_y_phi = convert_exp_conc(st.session_state[c3_key], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state[c3_key])
