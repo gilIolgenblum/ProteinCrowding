@@ -130,7 +130,7 @@ def _display_and_export_plot(fig, filename, key):
             file_name=f"{filename}.png",
             mime="image/png",
             key=f"{key}_png",
-            use_container_width=True
+            width="stretch"
         )
     with col2:
         st.download_button(
@@ -139,14 +139,14 @@ def _display_and_export_plot(fig, filename, key):
             file_name=f"{filename}.svg",
             mime="image/svg+xml",
             key=f"{key}_svg",
-            use_container_width=True
+            width="stretch"
         )
 
 
 def _display_and_export_plotly(fig, filename, key, height=500):
     """Render a Plotly figure with MathJax support and provide PNG/SVG download buttons."""
     fig.update_layout(height=height)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     col1, col2 = st.columns(2)
     with col1:
         try:
@@ -157,7 +157,7 @@ def _display_and_export_plotly(fig, filename, key, height=500):
                 file_name=f"{filename}.png",
                 mime="image/png",
                 key=f"{key}_png",
-                use_container_width=True
+                width="stretch"
             )
         except Exception:
             st.caption("PNG export requires kaleido (`pip install kaleido`).")
@@ -170,7 +170,7 @@ def _display_and_export_plotly(fig, filename, key, height=500):
                 file_name=f"{filename}.svg",
                 mime="image/svg+xml",
                 key=f"{key}_svg",
-                use_container_width=True
+                width="stretch"
             )
         except Exception:
             st.caption("SVG export unavailable.")
@@ -674,7 +674,7 @@ with st.sidebar.expander("💾 Save/Load Session", expanded=False):
             file_name=f"{filename_prefix}_session.json",
             mime="application/json",
             key="download_session_btn",
-            use_container_width=True
+            width="stretch"
         )
     except Exception as ex:
         st.error(f"Error preparing session data: {ex}")
@@ -696,7 +696,7 @@ with st.sidebar.expander("💾 Save/Load Session", expanded=False):
                 st.markdown(f"- Model: `{payload['model_type']}`")
                 st.markdown(f"- Temp: `{payload['temperature']['T']} K`")
                 st.markdown(f"- SASA: `{payload['protein']['SASA']}`")
-                if st.button("Apply Restored Session", key="btn_apply_session", use_container_width=True):
+                if st.button("Apply Restored Session", key="btn_apply_session", width="stretch"):
                     session_io.apply_session_payload(payload)
                     st.success("Restored session state! Rerunning...")
                     st.rerun()
@@ -807,7 +807,7 @@ if model_type == "Binary Crowding Model":
         n_points = validation.estimate_binary_grid_points(0.0001, phiC_max, dphiC)
         n_points, mem_mb = validation.validate_grid_size(n_points, bin_advanced, num_arrays=5)
         st.caption(f"Grid: {n_points:,} pts")
-        st.form_submit_button("Apply Parameters", use_container_width=True)
+        st.form_submit_button("Apply Parameters", width="stretch")
 
     try:
         cosolute = fh_crowding.Cosolute(
@@ -954,7 +954,7 @@ else:
         if dphi2 > 0 and dphi3 > 0:
             st.caption(f"Grid: {int(phi2_max/dphi2)}x{int(phi3_max/dphi3)} ({n_points:,} pts)")
             
-        st.form_submit_button("Apply Parameters", use_container_width=True)
+        st.form_submit_button("Apply Parameters", width="stretch")
 
     try:
         cosolutes = fh_crowding.CosoluteMixture(
@@ -1085,11 +1085,16 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             )
             
             if upload_mode == "Single CSV File (concentration, ΔG, ΔH, TΔS)":
-                f = st.file_uploader("Upload Single CSV File", type=["csv"], key="bin_single_uploader")
+                f = st.file_uploader(
+                    "Upload Single CSV File", type=["csv"], key="bin_single_uploader",
+                    help="Required columns: 'concentration' and at least one of 'dG', 'dH', 'TdS'."
+                )
+                bin_template = "concentration,dG,dH,TdS\n0.01,-1.2,-4.2,-3.0\n0.05,-2.1,-6.1,-4.0\n"
+                st.download_button("📄 Download Template", data=bin_template, file_name="binary_data.csv", mime="text/csv", key="btn_bin_single_csv")
                 if f:
                     try:
                         df = read_uploaded_csv(f)
-                        st.dataframe(df.head(), use_container_width=True)
+                        st.dataframe(df.head(), width="stretch")
                         if "concentration" not in df.columns:
                             st.error(f"Missing required column: 'concentration'\n\nExpected columns: 'concentration' and at least one of 'dG', 'dH', 'TdS'.\n\nDetected columns: {list(df.columns)}")
                         else:
@@ -1147,11 +1152,14 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             else:
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
-                    f_G = st.file_uploader("Upload ΔG CSV (concentration, ΔG)", type=["csv"], key="bin_g_uploader")
+                    f_G = st.file_uploader("Upload ΔG CSV", type=["csv"], key="bin_g_uploader", help="Required: 'concentration', 'dG'")
+                    st.download_button("📄 Template", data="concentration,dG\n0.01,-1.2\n0.05,-2.1\n", file_name="binary_dG.csv", mime="text/csv", key="btn_bin_g_csv")
                 with col_f2:
-                    f_H = st.file_uploader("Upload ΔH CSV (concentration, ΔH)", type=["csv"], key="bin_h_uploader")
+                    f_H = st.file_uploader("Upload ΔH CSV", type=["csv"], key="bin_h_uploader", help="Required: 'concentration', 'dH'")
+                    st.download_button("📄 Template", data="concentration,dH\n0.01,-4.2\n0.05,-5.1\n", file_name="binary_dH.csv", mime="text/csv", key="btn_bin_h_csv")
                 with col_f3:
-                    f_S = st.file_uploader("Upload TΔS CSV (concentration, TΔS)", type=["csv"], key="bin_s_uploader")
+                    f_S = st.file_uploader("Upload TΔS CSV", type=["csv"], key="bin_s_uploader", help="Required: 'concentration', 'TdS'")
+                    st.download_button("📄 Template", data="concentration,TdS\n0.01,-3.0\n0.05,-3.9\n", file_name="binary_TdS.csv", mime="text/csv", key="btn_bin_s_csv")
                 
                 if f_G:
                     try:
@@ -1223,11 +1231,14 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             if upload_mode == "Columns (conc2, conc3, potential)":
                 col_tf1, col_tf2, col_tf3 = st.columns(3)
                 with col_tf1:
-                    f_G = st.file_uploader("Upload ΔG CSV (conc2, conc3, ΔG)", type=["csv"], key="tern_g_uploader")
+                    f_G = st.file_uploader("Upload ΔG CSV", type=["csv"], key="tern_g_uploader", help="Required: 'conc2', 'conc3', 'dG'")
+                    st.download_button("📄 Template", data="conc2,conc3,dG\n0.01,0.01,-1.2\n0.05,0.05,-2.1\n", file_name="ternary_dG.csv", mime="text/csv", key="btn_tern_g_csv")
                 with col_tf2:
-                    f_H = st.file_uploader("Upload ΔH CSV (conc2, conc3, ΔH)", type=["csv"], key="tern_h_uploader")
+                    f_H = st.file_uploader("Upload ΔH CSV", type=["csv"], key="tern_h_uploader", help="Required: 'conc2', 'conc3', 'dH'")
+                    st.download_button("📄 Template", data="conc2,conc3,dH\n0.01,0.01,-4.2\n0.05,0.05,-5.1\n", file_name="ternary_dH.csv", mime="text/csv", key="btn_tern_h_csv")
                 with col_tf3:
-                    f_S = st.file_uploader("Upload TΔS CSV (conc2, conc3, TΔS)", type=["csv"], key="tern_s_uploader")
+                    f_S = st.file_uploader("Upload TΔS CSV", type=["csv"], key="tern_s_uploader", help="Required: 'conc2', 'conc3', 'TdS'")
+                    st.download_button("📄 Template", data="conc2,conc3,TdS\n0.01,0.01,-3.0\n0.05,0.05,-3.0\n", file_name="ternary_TdS.csv", mime="text/csv", key="btn_tern_s_csv")
                 
                 if f_G:
                     try:
@@ -1309,7 +1320,7 @@ with col_sim:
     st.markdown("Solve the equilibrium and calculate all thermodynamic quantities with current sidebar parameters.")
     
     # Run Simulation button
-    if st.button("Run Simulation", key="run_sim_btn", use_container_width=True):
+    if st.button("Run Simulation", key="run_sim_btn", width="stretch"):
         progress_bar = st.progress(0, text="Solving equilibrium... 0%")
 
         def update_progress(frac: float) -> None:
@@ -1352,7 +1363,7 @@ with col_sim:
             st.session_state["csv_data"] = ""
             
         if not st.session_state.get("csv_generated"):
-            if st.button("🔄 Generate Full Results for Download", use_container_width=True, key="btn_gen_csv"):
+            if st.button("🔄 Generate Full Results for Download", width="stretch", key="btn_gen_csv"):
                 with st.spinner("Generating CSV..."):
                     st.session_state["csv_data"] = export.get_model_results_csv(solved_model)
                     st.session_state["csv_generated"] = True
@@ -1364,7 +1375,7 @@ with col_sim:
                 data=st.session_state["csv_data"],
                 file_name=f"{filename_prefix}_model_results.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
                 key="btn_download_csv"
             )
 
@@ -1400,7 +1411,7 @@ with col_fit:
             with col_b1:
                 st.markdown("**Free Energy**")
                 with st.form("form_fit_eps"):
-                    fit_eps_btn = st.form_submit_button("Fit ε (from ΔΔG)", use_container_width=True)
+                    fit_eps_btn = st.form_submit_button("Fit ε (from ΔΔG)", width="stretch")
                 if fit_eps_btn:
                     if st.session_state.get("exp_ddG") is not None and st.session_state.get("exp_conc_G") is not None:
                         fit_progress = st.progress(0, text="Fitting ε...")
@@ -1450,7 +1461,7 @@ with col_fit:
             with col_b2:
                 st.markdown("**Entropy & Enthalpy**")
                 with st.form("form_fit_epsts"):
-                    fit_epsts_btn = st.form_submit_button("Fit εTS (from ΔΔH, TΔΔS)", use_container_width=True, disabled=(st.session_state.get("fitted_eps") is None))
+                    fit_epsts_btn = st.form_submit_button("Fit εTS (from ΔΔH, TΔΔS)", width="stretch", disabled=(st.session_state.get("fitted_eps") is None))
                 if fit_epsts_btn:
                     if (st.session_state.get("exp_ddH") is not None and 
                         st.session_state.get("exp_TddS") is not None and 
@@ -1526,7 +1537,7 @@ with col_fit:
                     file_name="fh_crowding_binary_fit_parameters.csv",
                     mime="text/csv",
                     key="download_fit_params_binary",
-                    use_container_width=True
+                    width="stretch"
                 )
         
         # Ternary fitting controls
@@ -1539,7 +1550,7 @@ with col_fit:
                 
                 # Fit eps2
                 with st.form("form_fit_eps2"):
-                    fit_eps2_btn = st.form_submit_button("Fit ε₂ (φ₃ = 0)", use_container_width=True)
+                    fit_eps2_btn = st.form_submit_button("Fit ε₂ (φ₃ = 0)", width="stretch")
                 if fit_eps2_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
@@ -1592,7 +1603,7 @@ with col_fit:
                 
                 # Fit eps3
                 with st.form("form_fit_eps3"):
-                    fit_eps3_btn = st.form_submit_button("Fit ε₃ (φ₂ = 0)", use_container_width=True)
+                    fit_eps3_btn = st.form_submit_button("Fit ε₃ (φ₂ = 0)", width="stretch")
                 if fit_eps3_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
@@ -1649,7 +1660,7 @@ with col_fit:
                 with st.form("form_fit_eps23"):
                     fit_eps23_btn = st.form_submit_button(
                         "Fit ε₂₃ (All data)", 
-                        use_container_width=True,
+                        width="stretch",
                         disabled=not eps23_enabled,
                         help="Only active after ε₂ and ε₃ are successfully fitted."
                     )
@@ -1713,7 +1724,7 @@ with col_fit:
                 
                 # Fit epsTS2
                 with st.form("form_fit_epsts2"):
-                    fit_epsts2_btn = st.form_submit_button("Fit εTS₂ (φ₃ = 0)", use_container_width=True, disabled=(st.session_state.get("fitted_eps2") is None))
+                    fit_epsts2_btn = st.form_submit_button("Fit εTS₂ (φ₃ = 0)", width="stretch", disabled=(st.session_state.get("fitted_eps2") is None))
                 if fit_epsts2_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
@@ -1769,7 +1780,7 @@ with col_fit:
 
                 # Fit epsTS3
                 with st.form("form_fit_epsts3"):
-                    fit_epsts3_btn = st.form_submit_button("Fit εTS₃ (φ₂ = 0)", use_container_width=True, disabled=(st.session_state.get("fitted_eps3") is None))
+                    fit_epsts3_btn = st.form_submit_button("Fit εTS₃ (φ₂ = 0)", width="stretch", disabled=(st.session_state.get("fitted_eps3") is None))
                 if fit_epsts3_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
@@ -1830,7 +1841,7 @@ with col_fit:
                 with st.form("form_fit_epsts23"):
                     fit_epsts23_btn = st.form_submit_button(
                         "Fit εTS₂₃ (All data)", 
-                        use_container_width=True,
+                        width="stretch",
                         disabled=not epsts23_enabled,
                         help="Only active after εTS₂ and εTS₃ are successfully fitted."
                     )
@@ -1930,7 +1941,7 @@ with col_fit:
                     file_name="fh_crowding_ternary_fit_parameters.csv",
                     mime="text/csv",
                     key="download_fit_params_ternary",
-                    use_container_width=True
+                    width="stretch"
                 )
 
 
@@ -2847,7 +2858,7 @@ if st.session_state.get("is_fitting_mode"):
     st.markdown("---")
     styles.section_header("Run Full Simulation", "🚀")
     st.info("A minimal grid preview is shown above. Run the full simulation to calculate the denser grid.")
-    if st.button("🚀 Run full simulation with fitted parameters", use_container_width=True):
+    if st.button("🚀 Run full simulation with fitted parameters", width="stretch"):
         with st.spinner("Solving full grid... (This may take a moment)"):
             log_runtime_state("before manual run simulation")
             try:
