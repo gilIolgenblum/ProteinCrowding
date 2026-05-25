@@ -17,6 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 import fh_crowding
 import session_io
 import export
+import validation
 import styles
 import citation
 
@@ -701,9 +702,19 @@ if model_type == "Binary Crowding Model":
     epsTS = st.sidebar.number_input("εTS (entropy component of ε)",     step=0.01, format="%.4f", key="bin_epsts_input")
 
     st.sidebar.subheader("Simulation Grid")
+    
+    bin_advanced = st.sidebar.checkbox(
+        "Enable Advanced/High-Resolution Grid",
+        value=False,
+        key="bin_advanced_grid",
+        help="Allows extremely fine grids. Warning: may crash the app if memory limits are exceeded."
+    )
+    
+    bin_min_dphi = 1e-5 if bin_advanced else 0.001
+    
     dphiC = st.sidebar.number_input(
         "Δϕᶜ (grid step)",
-        min_value=1e-5,
+        min_value=bin_min_dphi,
         max_value=0.05,
         step=0.0005,
         format="%.5f",
@@ -721,11 +732,22 @@ if model_type == "Binary Crowding Model":
         help="Maximum volume fraction of the grid. Default: 0.15.",
     )
 
-    cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
-    model = fh_crowding.BinaryCrowdingModel(
-        protein=protein, cosolute=cosolute, eps=eps, epsTS=epsTS,
-        dphiC=dphiC, phiC_max=phiC_max, T=T,
-    )
+    n_points = validation.estimate_binary_grid_points(0.0001, phiC_max, dphiC)
+    n_points, mem_mb = validation.validate_grid_size(n_points, bin_advanced, num_arrays=5)
+    st.sidebar.caption(f"Grid: {n_points:,} pts | Est. Mem: ~{mem_mb:.1f} MB")
+
+    try:
+        cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
+        model = fh_crowding.BinaryCrowdingModel(
+            protein=protein, cosolute=cosolute, eps=eps, epsTS=epsTS,
+            dphiC=dphiC, phiC_max=phiC_max, T=T,
+        )
+    except MemoryError:
+        st.error("**Memory Exhausted!** The grid resolution is too high for this deployment.")
+        st.stop()
+    except Exception as e:
+        st.error(f"**Numerical Error initializing Binary Model:** {e}")
+        st.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -801,9 +823,19 @@ else:
 
     # --- Concentration grid ---
     st.sidebar.subheader("Simulation Grid")
+    
+    tern_advanced = st.sidebar.checkbox(
+        "Enable Advanced/High-Resolution Grid",
+        value=False,
+        key="tern_advanced_grid",
+        help="Allows extremely fine grids. Warning: may crash the app if memory limits are exceeded."
+    )
+    
+    tern_min_dphi = 1e-5 if tern_advanced else 0.001
+    
     dphi2 = st.sidebar.number_input(
         "Δϕ₂ (grid step)",
-        min_value=1e-5,
+        min_value=tern_min_dphi,
         max_value=0.05,
         value=0.01,
         step=0.0005,
@@ -813,7 +845,7 @@ else:
     )
     dphi3 = st.sidebar.number_input(
         "Δϕ₃ (grid step)",
-        min_value=1e-5,
+        min_value=tern_min_dphi,
         max_value=0.05,
         value=0.01,
         step=0.0005,
@@ -842,19 +874,34 @@ else:
         help="Maximum volume fraction of cosolute 3. Default: 0.2.",
     )
 
-    cosolutes = fh_crowding.CosoluteMixture(
-        nu2=nu2, nu3=nu3,
-        chi12=chi12, chi13=chi13, chi23=chi23,
-        chiTS12=chiTS12, chiTS13=chiTS13, chiTS23=chiTS23,
-    )
-    model = fh_crowding.TernaryCrowdingModel(
-        protein=protein, cosolutes=cosolutes,
-        eps2=eps2, eps3=eps3, eps23=eps23,
-        epsTS2=epsTS2, epsTS3=epsTS3, epsTS23=epsTS23,
-        dphi2=dphi2, dphi3=dphi3,
-        phi2_max=phi2_max, phi3_max=phi3_max,
-        T=T,
-    )
+    validation.check_ternary_composition(phi2_max, phi3_max)
+    
+    n_points = validation.estimate_ternary_grid_points(0.0001, phi2_max, dphi2, 0.0001, phi3_max, dphi3)
+    n_points, mem_mb = validation.validate_grid_size(n_points, tern_advanced, num_arrays=10)
+    
+    if dphi2 > 0 and dphi3 > 0:
+        st.sidebar.caption(f"Grid: {int(phi2_max/dphi2)}x{int(phi3_max/dphi3)} ({n_points:,} pts | ~{mem_mb:.1f} MB)")
+
+    try:
+        cosolutes = fh_crowding.CosoluteMixture(
+            nu2=nu2, nu3=nu3,
+            chi12=chi12, chi13=chi13, chi23=chi23,
+            chiTS12=chiTS12, chiTS13=chiTS13, chiTS23=chiTS23,
+        )
+        model = fh_crowding.TernaryCrowdingModel(
+            protein=protein, cosolutes=cosolutes,
+            eps2=eps2, eps3=eps3, eps23=eps23,
+            epsTS2=epsTS2, epsTS3=epsTS3, epsTS23=epsTS23,
+            dphi2=dphi2, dphi3=dphi3,
+            phi2_max=phi2_max, phi3_max=phi3_max,
+            T=T,
+        )
+    except MemoryError:
+        st.error("**Memory Exhausted!** The grid resolution is too high for this deployment.")
+        st.stop()
+    except Exception as e:
+        st.error(f"**Numerical Error initializing Ternary Model:** {e}")
+        st.stop()
 
     citation.render_sidebar_citation()
 
@@ -1220,15 +1267,30 @@ with col_sim:
         solved_model = st.session_state["solved_model"]
         
         st.markdown("### Export Simulated Quantities")
-        csv = export.get_model_results_csv(solved_model)
-        filename_prefix = "fh_crowding_binary" if model_type == "Binary Crowding Model" else "fh_crowding_ternary"
-        st.download_button(
-            "📥 Download Simulation Results (CSV)",
-            data=csv,
-            file_name=f"{filename_prefix}_model_results.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+        
+        # Lazy CSV generation to prevent memory spikes on every slider change
+        current_model_id = id(solved_model)
+        if st.session_state.get("csv_model_id") != current_model_id:
+            st.session_state["csv_model_id"] = current_model_id
+            st.session_state["csv_generated"] = False
+            st.session_state["csv_data"] = ""
+            
+        if not st.session_state.get("csv_generated"):
+            if st.button("🔄 Generate Full Results for Download", use_container_width=True, key="btn_gen_csv"):
+                with st.spinner("Generating CSV..."):
+                    st.session_state["csv_data"] = export.get_model_results_csv(solved_model)
+                    st.session_state["csv_generated"] = True
+                    st.rerun()
+        else:
+            filename_prefix = "fh_crowding_binary" if model_type == "Binary Crowding Model" else "fh_crowding_ternary"
+            st.download_button(
+                "📥 Download Simulation Results (CSV)",
+                data=st.session_state["csv_data"],
+                file_name=f"{filename_prefix}_model_results.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="btn_download_csv"
+            )
 
 
 with col_fit:
