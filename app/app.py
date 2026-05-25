@@ -22,6 +22,39 @@ import styles
 import citation
 import logging
 import os
+import hashlib
+import json
+
+def get_model_signature(model, model_type, **grid_kwargs):
+    """Build a hash signature of the current model parameters and grid settings."""
+    try:
+        params = {"model_type": model_type}
+        if model_type == "Binary Crowding Model":
+            params.update({
+                "eps": model.eps,
+                "epsTS": model.epsTS,
+                "dphiC": grid_kwargs.get("dphiC"),
+                "phiC_max": grid_kwargs.get("phiC_max")
+            })
+        else:
+            params.update({
+                "eps2": model.eps2,
+                "eps3": model.eps3,
+                "eps23": model.eps23,
+                "epsTS2": model.epsTS2,
+                "epsTS3": model.epsTS3,
+                "epsTS23": model.epsTS23,
+                "dphi2": grid_kwargs.get("dphi2"),
+                "dphi3": grid_kwargs.get("dphi3"),
+                "phi2_max": grid_kwargs.get("phi2_max"),
+                "phi3_max": grid_kwargs.get("phi3_max")
+            })
+        # Convert to string and hash
+        param_str = json.dumps(params, sort_keys=True)
+        return hashlib.md5(param_str.encode()).hexdigest()
+    except Exception:
+        return "unknown_signature"
+
 
 logger = logging.getLogger(__name__)
 
@@ -735,43 +768,46 @@ if model_type == "Binary Crowding Model":
              "You can still edit the values below manually.",
     )
 
-    nu    = st.sidebar.number_input("ν (excluded volume)",              key="bin_nu",    step=0.01, format="%.4f")
-    chi   = st.sidebar.number_input("χ (non-ideal mixing)",              key="bin_chi",   step=0.01, format="%.4f")
-    chiTS = st.sidebar.number_input("χₜₛ (entropy component of χ)",      key="bin_chiTS", step=0.01, format="%.4f")
-
-    st.sidebar.subheader("Soft Interaction (ε)")
+    with st.sidebar.form("bin_params_form"):
+        st.subheader("Model Parameters")
+        nu    = st.number_input("ν (excluded volume)",              key="bin_nu",    step=0.01, format="%.4f")
+        chi   = st.number_input("χ (non-ideal mixing)",              key="bin_chi",   step=0.01, format="%.4f")
+        chiTS = st.number_input("χₜₛ (entropy component of χ)",      key="bin_chiTS", step=0.01, format="%.4f")
     
-    eps   = st.sidebar.number_input("ε (soft interaction)",              step=0.01, format="%.4f", key="bin_eps_input")
-    epsTS = st.sidebar.number_input("εTS (entropy component of ε)",     step=0.01, format="%.4f", key="bin_epsts_input")
-
-    st.sidebar.subheader("Simulation Grid")
+        st.subheader("Soft Interaction (ε)")
+        
+        eps   = st.number_input("ε (soft interaction)",              step=0.01, format="%.4f", key="bin_eps_input")
+        epsTS = st.number_input("εTS (entropy component of ε)",     step=0.01, format="%.4f", key="bin_epsts_input")
     
-    bin_advanced = False
-    bin_min_dphi = 0.001
+        st.subheader("Simulation Grid")
+        
+        bin_advanced = False
+        bin_min_dphi = 0.001
+        
+        dphiC = st.number_input(
+            "Δϕᶜ (grid step)",
+            min_value=bin_min_dphi,
+            max_value=0.05,
+            step=0.0005,
+            format="%.5f",
+            key="bin_dphiC",
+            help="Concentration grid step size. Smaller = finer grid, slower simulation. "
+                 "Package default: 0.0001. App default: 0.001 (10× faster).",
+        )
+        phiC_max = st.number_input(
+            "ϕᶜ max",
+            min_value=0.001,
+            max_value=1.0,
+            step=0.01,
+            format="%.3f",
+            key="bin_phiC_max",
+            help="Maximum volume fraction of the grid. Default: 0.15.",
+        )
     
-    dphiC = st.sidebar.number_input(
-        "Δϕᶜ (grid step)",
-        min_value=bin_min_dphi,
-        max_value=0.05,
-        step=0.0005,
-        format="%.5f",
-        key="bin_dphiC",
-        help="Concentration grid step size. Smaller = finer grid, slower simulation. "
-             "Package default: 0.0001. App default: 0.001 (10× faster).",
-    )
-    phiC_max = st.sidebar.number_input(
-        "ϕᶜ max",
-        min_value=0.001,
-        max_value=1.0,
-        step=0.01,
-        format="%.3f",
-        key="bin_phiC_max",
-        help="Maximum volume fraction of the grid. Default: 0.15.",
-    )
-
-    n_points = validation.estimate_binary_grid_points(0.0001, phiC_max, dphiC)
-    n_points, mem_mb = validation.validate_grid_size(n_points, bin_advanced, num_arrays=5)
-    st.sidebar.caption(f"Grid: {n_points:,} pts")
+        n_points = validation.estimate_binary_grid_points(0.0001, phiC_max, dphiC)
+        n_points, mem_mb = validation.validate_grid_size(n_points, bin_advanced, num_arrays=5)
+        st.caption(f"Grid: {n_points:,} pts")
+        st.form_submit_button("Apply Parameters", use_container_width=True)
 
     try:
         cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
@@ -793,6 +829,7 @@ if model_type == "Binary Crowding Model":
 else:
     # --- Cosolute pair preset (top-level shortcut) ---
     st.sidebar.subheader("Cosolute Pair Preset")
+    st.sidebar.subheader("Presets")
     st.sidebar.selectbox(
         "Select cosolute pair",
         COSOLUTE_PAIR_NAMES,
@@ -801,11 +838,6 @@ else:
         help="Selecting a pair fills all cosolute and cross-interaction parameters at once. "
              "You can still fine-tune individual values below.",
     )
-
-    st.sidebar.markdown("---")
-
-    # --- Cosolute 2 ---
-    st.sidebar.subheader("Cosolute 2")
     st.sidebar.selectbox(
         "Select cosolute 2",
         COSOLUTE_NAMES,
@@ -819,15 +851,6 @@ else:
         },
         help="Overrides cosolute-2 parameters only.",
     )
-    nu2     = st.sidebar.number_input("ν₂ (excluded volume)",          key="nu2",     step=0.01, min_value=1.0, format="%.4f")
-    chi12   = st.sidebar.number_input("χ₁₂ (non-ideal mixing)",          key="chi12",   step=0.01, format="%.4f")
-    chiTS12 = st.sidebar.number_input("χₜₛ₁₂ (entropy component)",      key="chiTS12", step=0.01, format="%.4f")
-    
-    eps2    = st.sidebar.number_input("ε₂ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps2_input")
-    epsTS2  = st.sidebar.number_input("εTS₂ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts2_input")
-
-    # --- Cosolute 3 ---
-    st.sidebar.subheader("Cosolute 3")
     st.sidebar.selectbox(
         "Select cosolute 3",
         COSOLUTE_NAMES,
@@ -841,77 +864,94 @@ else:
         },
         help="Overrides cosolute-3 parameters only.",
     )
-    nu3     = st.sidebar.number_input("ν₃ (excluded volume)",          key="nu3",     step=0.01, min_value=1.0, format="%.4f")
-    chi13   = st.sidebar.number_input("χ₁₃ (non-ideal mixing)",          key="chi13",   step=0.01, format="%.4f")
-    chiTS13 = st.sidebar.number_input("χₜₛ₁₃ (entropy component)",      key="chiTS13", step=0.01, format="%.4f")
-    
-    eps3    = st.sidebar.number_input("ε₃ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps3_input")
-    epsTS3  = st.sidebar.number_input("εTS₃ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts3_input")
 
-    # --- Cosolute–cosolute non-ideal mixing ---
-    st.sidebar.subheader("Cosolute–Cosolute Mixing (χ₂₃)")
-    chi23   = st.sidebar.number_input("χ₂₃ (non-ideal mixing)",       key="chi23",   step=0.01, format="%.4f")
-    chiTS23 = st.sidebar.number_input("χₜₛ₂₃ (entropy component)",   key="chiTS23", step=0.01, format="%.4f")
+    st.sidebar.markdown("---")
 
-    # --- Synergy parameter (three-body coupling) ---
-    st.sidebar.subheader("Synergy Parameter (ε₂₃)")
-    eps23   = st.sidebar.number_input("ε₂₃ (synergy)",                step=0.01, format="%.4f", key="eps23")
-    epsTS23 = st.sidebar.number_input("εTS₂₃ (entropy component)",   step=0.01, format="%.4f", key="epsTS23")
-
-    # --- Concentration grid ---
-    st.sidebar.subheader("Simulation Grid")
+    with st.sidebar.form("tern_params_form"):
+        # --- Cosolute 2 ---
+        st.subheader("Cosolute 2")
+        nu2     = st.number_input("ν₂ (excluded volume)",          key="nu2",     step=0.01, min_value=1.0, format="%.4f")
+        chi12   = st.number_input("χ₁₂ (non-ideal mixing)",          key="chi12",   step=0.01, format="%.4f")
+        chiTS12 = st.number_input("χₜₛ₁₂ (entropy component)",      key="chiTS12", step=0.01, format="%.4f")
+        
+        eps2    = st.number_input("ε₂ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps2_input")
+        epsTS2  = st.number_input("εTS₂ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts2_input")
     
-    tern_advanced = False
-    tern_min_dphi = 0.001
+        # --- Cosolute 3 ---
+        st.subheader("Cosolute 3")
+        nu3     = st.number_input("ν₃ (excluded volume)",          key="nu3",     step=0.01, min_value=1.0, format="%.4f")
+        chi13   = st.number_input("χ₁₃ (non-ideal mixing)",          key="chi13",   step=0.01, format="%.4f")
+        chiTS13 = st.number_input("χₜₛ₁₃ (entropy component)",      key="chiTS13", step=0.01, format="%.4f")
+        
+        eps3    = st.number_input("ε₃ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps3_input")
+        epsTS3  = st.number_input("εTS₃ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts3_input")
     
-    dphi2 = st.sidebar.number_input(
-        "Δϕ₂ (grid step)",
-        min_value=tern_min_dphi,
-        max_value=0.05,
-        value=0.01,
-        step=0.0005,
-        format="%.5f",
-        key="tern_dphi2",
-        help="Grid step for cosolute 2 axis. Package default: 0.0001. App default: 0.001.",
-    )
-    dphi3 = st.sidebar.number_input(
-        "Δϕ₃ (grid step)",
-        min_value=tern_min_dphi,
-        max_value=0.05,
-        value=0.01,
-        step=0.0005,
-        format="%.5f",
-        key="tern_dphi3",
-        help="Grid step for cosolute 3 axis. Package default: 0.0001. App default: 0.001.",
-    )
-    phi2_max = st.sidebar.number_input(
-        "ϕ₂ max",
-        min_value=0.001,
-        max_value=1.0,
-        value=0.2,
-        step=0.01,
-        format="%.3f",
-        key="tern_phi2_max",
-        help="Maximum volume fraction of cosolute 2. Default: 0.2.",
-    )
-    phi3_max = st.sidebar.number_input(
-        "ϕ₃ max",
-        min_value=0.001,
-        max_value=1.0,
-        value=0.2,
-        step=0.01,
-        format="%.3f",
-        key="tern_phi3_max",
-        help="Maximum volume fraction of cosolute 3. Default: 0.2.",
-    )
-
-    validation.check_ternary_composition(phi2_max, phi3_max)
+        # --- Cosolute–cosolute non-ideal mixing ---
+        st.subheader("Cosolute–Cosolute Mixing (χ₂₃)")
+        chi23   = st.number_input("χ₂₃ (non-ideal mixing)",       key="chi23",   step=0.01, format="%.4f")
+        chiTS23 = st.number_input("χₜₛ₂₃ (entropy component)",   key="chiTS23", step=0.01, format="%.4f")
     
-    n_points = validation.estimate_ternary_grid_points(0.0001, phi2_max, dphi2, 0.0001, phi3_max, dphi3)
-    n_points, mem_mb = validation.validate_grid_size(n_points, tern_advanced, num_arrays=10)
+        # --- Synergy parameter (three-body coupling) ---
+        st.subheader("Synergy Parameter (ε₂₃)")
+        eps23   = st.number_input("ε₂₃ (synergy)",                step=0.01, format="%.4f", key="eps23")
+        epsTS23 = st.number_input("εTS₂₃ (entropy component)",   step=0.01, format="%.4f", key="epsTS23")
     
-    if dphi2 > 0 and dphi3 > 0:
-        st.sidebar.caption(f"Grid: {int(phi2_max/dphi2)}x{int(phi3_max/dphi3)} ({n_points:,} pts)")
+        # --- Concentration grid ---
+        st.subheader("Simulation Grid")
+        
+        tern_advanced = False
+        tern_min_dphi = 0.001
+        
+        dphi2 = st.number_input(
+            "Δϕ₂ (grid step)",
+            min_value=tern_min_dphi,
+            max_value=0.05,
+            value=0.01,
+            step=0.0005,
+            format="%.5f",
+            key="tern_dphi2",
+            help="Grid step for cosolute 2 axis. Package default: 0.0001. App default: 0.001.",
+        )
+        dphi3 = st.number_input(
+            "Δϕ₃ (grid step)",
+            min_value=tern_min_dphi,
+            max_value=0.05,
+            value=0.01,
+            step=0.0005,
+            format="%.5f",
+            key="tern_dphi3",
+            help="Grid step for cosolute 3 axis. Package default: 0.0001. App default: 0.001.",
+        )
+        phi2_max = st.number_input(
+            "ϕ₂ max",
+            min_value=0.001,
+            max_value=1.0,
+            value=0.2,
+            step=0.01,
+            format="%.3f",
+            key="tern_phi2_max",
+            help="Maximum volume fraction of cosolute 2. Default: 0.2.",
+        )
+        phi3_max = st.number_input(
+            "ϕ₃ max",
+            min_value=0.001,
+            max_value=1.0,
+            value=0.2,
+            step=0.01,
+            format="%.3f",
+            key="tern_phi3_max",
+            help="Maximum volume fraction of cosolute 3. Default: 0.2.",
+        )
+    
+        validation.check_ternary_composition(phi2_max, phi3_max)
+        
+        n_points = validation.estimate_ternary_grid_points(0.0001, phi2_max, dphi2, 0.0001, phi3_max, dphi3)
+        n_points, mem_mb = validation.validate_grid_size(n_points, tern_advanced, num_arrays=10)
+        
+        if dphi2 > 0 and dphi3 > 0:
+            st.caption(f"Grid: {int(phi2_max/dphi2)}x{int(phi3_max/dphi3)} ({n_points:,} pts)")
+            
+        st.form_submit_button("Apply Parameters", use_container_width=True)
 
     try:
         cosolutes = fh_crowding.CosoluteMixture(
@@ -1354,7 +1394,8 @@ with col_fit:
             # Button 1: Fit eps
             with col_b1:
                 st.markdown("**Free Energy**")
-                fit_eps_btn = st.button("Fit ε (from ΔΔG)", key="btn_fit_eps", use_container_width=True)
+                with st.form("form_fit_eps"):
+                    fit_eps_btn = st.form_submit_button("Fit ε (from ΔΔG)", use_container_width=True)
                 if fit_eps_btn:
                     if st.session_state.get("exp_ddG") is not None and st.session_state.get("exp_conc_G") is not None:
                         fit_progress = st.progress(0, text="Fitting ε...")
@@ -1403,7 +1444,8 @@ with col_fit:
             # Button 2: Fit epsTS
             with col_b2:
                 st.markdown("**Entropy & Enthalpy**")
-                fit_epsts_btn = st.button("Fit εTS (from ΔΔH, TΔΔS)", key="btn_fit_epsts", use_container_width=True, disabled=(st.session_state.get("fitted_eps") is None))
+                with st.form("form_fit_epsts"):
+                    fit_epsts_btn = st.form_submit_button("Fit εTS (from ΔΔH, TΔΔS)", use_container_width=True, disabled=(st.session_state.get("fitted_eps") is None))
                 if fit_epsts_btn:
                     if (st.session_state.get("exp_ddH") is not None and 
                         st.session_state.get("exp_TddS") is not None and 
@@ -1491,7 +1533,8 @@ with col_fit:
                 st.markdown("**Free Energy**")
                 
                 # Fit eps2
-                fit_eps2_btn = st.button("Fit ε₂ (φ₃ = 0)", key="btn_fit_eps2", use_container_width=True)
+                with st.form("form_fit_eps2"):
+                    fit_eps2_btn = st.form_submit_button("Fit ε₂ (φ₃ = 0)", use_container_width=True)
                 if fit_eps2_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
@@ -1543,7 +1586,8 @@ with col_fit:
                         st.error("Please upload experimental Ternary ΔG data first!")
                 
                 # Fit eps3
-                fit_eps3_btn = st.button("Fit ε₃ (φ₂ = 0)", key="btn_fit_eps3", use_container_width=True)
+                with st.form("form_fit_eps3"):
+                    fit_eps3_btn = st.form_submit_button("Fit ε₃ (φ₂ = 0)", use_container_width=True)
                 if fit_eps3_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
@@ -1597,13 +1641,13 @@ with col_fit:
                 # Fit eps23
                 eps23_enabled = (st.session_state.get("fitted_eps2") is not None and 
                                  st.session_state.get("fitted_eps3") is not None)
-                fit_eps23_btn = st.button(
-                    "Fit ε₂₃ (All data)", 
-                    key="btn_fit_eps23", 
-                    use_container_width=True,
-                    disabled=not eps23_enabled,
-                    help="Only active after ε₂ and ε₃ are successfully fitted."
-                )
+                with st.form("form_fit_eps23"):
+                    fit_eps23_btn = st.form_submit_button(
+                        "Fit ε₂₃ (All data)", 
+                        use_container_width=True,
+                        disabled=not eps23_enabled,
+                        help="Only active after ε₂ and ε₃ are successfully fitted."
+                    )
                 if fit_eps23_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
@@ -1663,7 +1707,8 @@ with col_fit:
                 st.markdown("**Entroppy & Enthalpy**")
                 
                 # Fit epsTS2
-                fit_epsts2_btn = st.button("Fit εTS₂ (φ₃ = 0)", key="btn_fit_epsts2", use_container_width=True, disabled=(st.session_state.get("fitted_eps2") is None))
+                with st.form("form_fit_epsts2"):
+                    fit_epsts2_btn = st.form_submit_button("Fit εTS₂ (φ₃ = 0)", use_container_width=True, disabled=(st.session_state.get("fitted_eps2") is None))
                 if fit_epsts2_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
@@ -1718,7 +1763,8 @@ with col_fit:
                         st.error("Please upload experimental Ternary ΔH and TΔS data first!")
 
                 # Fit epsTS3
-                fit_epsts3_btn = st.button("Fit εTS₃ (φ₂ = 0)", key="btn_fit_epsts3", use_container_width=True, disabled=(st.session_state.get("fitted_eps3") is None))
+                with st.form("form_fit_epsts3"):
+                    fit_epsts3_btn = st.form_submit_button("Fit εTS₃ (φ₂ = 0)", use_container_width=True, disabled=(st.session_state.get("fitted_eps3") is None))
                 if fit_epsts3_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
@@ -1776,13 +1822,13 @@ with col_fit:
                 epsts23_enabled = (st.session_state.get("fitted_epsTS2") is not None and 
                                    st.session_state.get("fitted_epsTS3") is not None and 
                                    st.session_state.get("fitted_eps23") is not None)
-                fit_epsts23_btn = st.button(
-                    "Fit εTS₂₃ (All data)", 
-                    key="btn_fit_epsts23", 
-                    use_container_width=True,
-                    disabled=not epsts23_enabled,
-                    help="Only active after εTS₂ and εTS₃ are successfully fitted."
-                )
+                with st.form("form_fit_epsts23"):
+                    fit_epsts23_btn = st.form_submit_button(
+                        "Fit εTS₂₃ (All data)", 
+                        use_container_width=True,
+                        disabled=not epsts23_enabled,
+                        help="Only active after εTS₂ and εTS₃ are successfully fitted."
+                    )
                 if fit_epsts23_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
@@ -2810,6 +2856,13 @@ if st.session_state.get("is_fitting_mode"):
                 log_runtime_state("after manual run simulation")
                 st.session_state["solved_model"] = model
                 st.session_state["solved_model_type"] = model_type
+                
+                # Save signature
+                if model_type == "Binary Crowding Model":
+                    sig = get_model_signature(model, model_type, dphiC=dphiC, phiC_max=phiC_max)
+                else:
+                    sig = get_model_signature(model, model_type, dphi2=dphi2, dphi3=dphi3, phi2_max=phi2_max, phi3_max=phi3_max)
+                st.session_state["solved_model_signature"] = sig
                 
                 # Clear old CSV cache
                 st.session_state.pop("csv_data", None)
