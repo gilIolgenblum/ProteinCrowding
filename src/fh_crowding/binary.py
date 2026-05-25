@@ -103,9 +103,9 @@ class BinaryCrowdingModel(Cosolute):
         self.phiC, self.phiS= model_phiC, model_phiS
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
         self.phiCsurf = np.zeros(self.phiC.shape)
-        # solve for final eps
-        self.solve_equil()
-        self.to_pandas()
+        # Note: We intentionally do not solve the full grid automatically here 
+        # to prevent out-of-memory errors on large UI grids. 
+        # The user must call `solve_equil()` explicitly if they want the full simulation.
 
     def fit_epsTS(self, exp_conc: Sequence[float], exp_ddH: Sequence[float], exp_TddS: Sequence[float],
                   concentration_type: str = 'phi', disp: bool = True):
@@ -145,9 +145,9 @@ class BinaryCrowdingModel(Cosolute):
         self.phiC, self.phiS= model_phiC, model_phiS
         self.muC, self.muS = self.cal_muC(), self.cal_muS()
         self.phiCsurf = np.zeros(self.phiC.shape)
-        # solve for final eps
-        self.solve_equil()
-        self.to_pandas()
+        # Note: We intentionally do not solve the full grid automatically here 
+        # to prevent out-of-memory errors on large UI grids. 
+        # The user must call `solve_equil()` explicitly if they want the full simulation.
         
     def msd_fit_eps(self, eps: Union[float, np.ndarray], ddG: np.ndarray):
         self.eps = eps

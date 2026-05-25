@@ -20,6 +20,49 @@ import export
 import validation
 import styles
 import citation
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+def log_runtime_state(label: str) -> None:
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        mem_mb = process.memory_info().rss / 1024 / 1024
+        logger.warning(f"[APP_FIT] {label} | RSS={mem_mb:.1f} MB")
+    except Exception:
+        logger.warning(f"[APP_FIT] {label}")
+
+def run_minimal_simulation_preview(model_type, fitted_model, protein, cosolute_s, T, phiC_max, phi2_max=None, phi3_max=None):
+    """
+    Constructs and solves a minimal resolution model (10 pts or 10x10 pts)
+    to provide an immediate preview after parameter fitting.
+    """
+    if model_type == "Binary Crowding Model":
+        dphiC_min = max((phiC_max - 0.0001) / 9.0, 0.0001)
+        minimal_model = fh_crowding.BinaryCrowdingModel(
+            protein=protein, cosolute=cosolute_s, 
+            eps=fitted_model.eps, epsTS=fitted_model.epsTS,
+            dphiC=dphiC_min, phiC_max=phiC_max, T=T
+        )
+        minimal_model.solve_equil()
+        minimal_model.to_pandas()
+        return minimal_model
+        
+    elif model_type == "Ternary Crowding Model":
+        dphi2_min = max((phi2_max - 0.0001) / 9.0, 0.0001)
+        dphi3_min = max((phi3_max - 0.0001) / 9.0, 0.0001)
+        minimal_model = fh_crowding.TernaryCrowdingModel(
+            protein=protein, cosolutes=cosolute_s,
+            eps2=fitted_model.eps2, eps3=fitted_model.eps3, eps23=fitted_model.eps23,
+            epsTS2=fitted_model.epsTS2, epsTS3=fitted_model.epsTS3, epsTS23=fitted_model.epsTS23,
+            dphi2=dphi2_min, phi2_max=phi2_max,
+            dphi3=dphi3_min, phi3_max=phi3_max, T=T
+        )
+        minimal_model.solve_equil(print_msg=False)
+        minimal_model.to_pandas()
+        return minimal_model
 
 st.set_page_config(
     page_title="FH Crowding Model — Thermodynamic Analysis",
@@ -69,8 +112,8 @@ def _display_and_export_plot(fig, filename, key):
 
 def _display_and_export_plotly(fig, filename, key, height=500):
     """Render a Plotly figure with MathJax support and provide PNG/SVG download buttons."""
-    html_str = pio.to_html(fig, include_mathjax='cdn', full_html=False)
-    components.html(html_str, height=height, scrolling=False)
+    fig.update_layout(height=height)
+    st.plotly_chart(fig, use_container_width=True)
     col1, col2 = st.columns(2)
     with col1:
         try:
@@ -703,14 +746,8 @@ if model_type == "Binary Crowding Model":
 
     st.sidebar.subheader("Simulation Grid")
     
-    bin_advanced = st.sidebar.checkbox(
-        "Enable Advanced/High-Resolution Grid",
-        value=False,
-        key="bin_advanced_grid",
-        help="Allows extremely fine grids. Warning: may crash the app if memory limits are exceeded."
-    )
-    
-    bin_min_dphi = 1e-5 if bin_advanced else 0.001
+    bin_advanced = False
+    bin_min_dphi = 0.001
     
     dphiC = st.sidebar.number_input(
         "Δϕᶜ (grid step)",
@@ -734,7 +771,7 @@ if model_type == "Binary Crowding Model":
 
     n_points = validation.estimate_binary_grid_points(0.0001, phiC_max, dphiC)
     n_points, mem_mb = validation.validate_grid_size(n_points, bin_advanced, num_arrays=5)
-    st.sidebar.caption(f"Grid: {n_points:,} pts | Est. Mem: ~{mem_mb:.1f} MB")
+    st.sidebar.caption(f"Grid: {n_points:,} pts")
 
     try:
         cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
@@ -824,14 +861,8 @@ else:
     # --- Concentration grid ---
     st.sidebar.subheader("Simulation Grid")
     
-    tern_advanced = st.sidebar.checkbox(
-        "Enable Advanced/High-Resolution Grid",
-        value=False,
-        key="tern_advanced_grid",
-        help="Allows extremely fine grids. Warning: may crash the app if memory limits are exceeded."
-    )
-    
-    tern_min_dphi = 1e-5 if tern_advanced else 0.001
+    tern_advanced = False
+    tern_min_dphi = 0.001
     
     dphi2 = st.sidebar.number_input(
         "Δϕ₂ (grid step)",
@@ -880,7 +911,7 @@ else:
     n_points, mem_mb = validation.validate_grid_size(n_points, tern_advanced, num_arrays=10)
     
     if dphi2 > 0 and dphi3 > 0:
-        st.sidebar.caption(f"Grid: {int(phi2_max/dphi2)}x{int(phi3_max/dphi3)} ({n_points:,} pts | ~{mem_mb:.1f} MB)")
+        st.sidebar.caption(f"Grid: {int(phi2_max/dphi2)}x{int(phi3_max/dphi3)} ({n_points:,} pts)")
 
     try:
         cosolutes = fh_crowding.CosoluteMixture(
@@ -1335,23 +1366,27 @@ with col_fit:
                             if not np.any(valid_idx):
                                 raise ValueError("No valid non-NaN experimental ΔG data points to fit.")
                             # Run fit
+                            log_runtime_state("before fit optimization")
                             model.fit_eps(
                                 conc_G[valid_idx],
                                 ddG[valid_idx],
                                 concentration_type=fit_conc_type
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps...")
-                            # Resolve model
-                            model.solve_equil()
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
-                            # Save state
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_eps"] = model.eps
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolute, T, phiC_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
+
                             
                             st.session_state["fit_success_msg"] = f"Successfully fitted eps: {model.eps:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
@@ -1368,7 +1403,7 @@ with col_fit:
             # Button 2: Fit epsTS
             with col_b2:
                 st.markdown("**Entropy & Enthalpy**")
-                fit_epsts_btn = st.button("Fit εTS (from ΔΔH, TΔΔS)", key="btn_fit_epsts", use_container_width=True)
+                fit_epsts_btn = st.button("Fit εTS (from ΔΔH, TΔΔS)", key="btn_fit_epsts", use_container_width=True, disabled=(st.session_state.get("fitted_eps") is None))
                 if fit_epsts_btn:
                     if (st.session_state.get("exp_ddH") is not None and 
                         st.session_state.get("exp_TddS") is not None and 
@@ -1383,24 +1418,28 @@ with col_fit:
                             if not np.any(valid_idx):
                                 raise ValueError("No valid non-NaN experimental ΔH/TΔS data points to fit.")
                             # Run fit
+                            log_runtime_state("before fit optimization")
                             model.fit_epsTS(
                                 conc_T[valid_idx],
                                 ddH[valid_idx],
                                 TddS[valid_idx],
                                 concentration_type=fit_conc_type
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS...")
-                            # Resolve model
-                            model.solve_equil()
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
-                            # Save state
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_epsTS"] = model.epsTS
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolute, T, phiC_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
+
                             
                             st.session_state["fit_success_msg"] = f"Successfully fitted εTS: {model.epsTS:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
@@ -1477,16 +1516,20 @@ with col_fit:
                                 fit_eps3=False,
                                 fit_eps23=False
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps2 parameter...")
-                            model.solve_equil(print_msg=False)
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_eps2"] = model.eps2
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolutes, T, None, phi2_max, phi3_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
                             st.session_state["fit_success_msg"] = f"Successfully fitted ε₂: {model.eps2:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
@@ -1525,16 +1568,20 @@ with col_fit:
                                 fit_eps3=True,
                                 fit_eps23=False
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps3 parameter...")
-                            model.solve_equil(print_msg=False)
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_eps3"] = model.eps3
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolutes, T, None, phi2_max, phi3_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
                             st.session_state["fit_success_msg"] = f"Successfully fitted ε₃: {model.eps3:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
@@ -1585,16 +1632,20 @@ with col_fit:
                                 fit_eps3=False,
                                 fit_eps23=True
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted eps23 synergy parameter...")
-                            model.solve_equil(print_msg=False)
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_eps23"] = model.eps23
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolutes, T, None, phi2_max, phi3_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
                             st.session_state["fit_success_msg"] = f"Successfully fitted ε₂₃: {model.eps23:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
@@ -1612,7 +1663,7 @@ with col_fit:
                 st.markdown("**Entroppy & Enthalpy**")
                 
                 # Fit epsTS2
-                fit_epsts2_btn = st.button("Fit εTS₂ (φ₃ = 0)", key="btn_fit_epsts2", use_container_width=True)
+                fit_epsts2_btn = st.button("Fit εTS₂ (φ₃ = 0)", key="btn_fit_epsts2", use_container_width=True, disabled=(st.session_state.get("fitted_eps2") is None))
                 if fit_epsts2_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
@@ -1640,16 +1691,20 @@ with col_fit:
                                 fit_epsTS3=False,
                                 fit_epsTS23=False
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS2 parameter...")
-                            model.solve_equil(print_msg=False)
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_epsTS2"] = model.epsTS2
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolutes, T, None, phi2_max, phi3_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
                             st.session_state["fit_success_msg"] = f"Successfully fitted εTS₂: {model.epsTS2:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
@@ -1663,7 +1718,7 @@ with col_fit:
                         st.error("Please upload experimental Ternary ΔH and TΔS data first!")
 
                 # Fit epsTS3
-                fit_epsts3_btn = st.button("Fit εTS₃ (φ₂ = 0)", key="btn_fit_epsts3", use_container_width=True)
+                fit_epsts3_btn = st.button("Fit εTS₃ (φ₂ = 0)", key="btn_fit_epsts3", use_container_width=True, disabled=(st.session_state.get("fitted_eps3") is None))
                 if fit_epsts3_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
@@ -1691,16 +1746,20 @@ with col_fit:
                                 fit_epsTS3=True,
                                 fit_epsTS23=False
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS3 parameter...")
-                            model.solve_equil(print_msg=False)
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_epsTS3"] = model.epsTS3
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolutes, T, None, phi2_max, phi3_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
                             st.session_state["fit_success_msg"] = f"Successfully fitted εTS₃: {model.epsTS3:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
@@ -1715,7 +1774,8 @@ with col_fit:
 
                 # Fit epsTS23
                 epsts23_enabled = (st.session_state.get("fitted_epsTS2") is not None and 
-                                   st.session_state.get("fitted_epsTS3") is not None)
+                                   st.session_state.get("fitted_epsTS3") is not None and 
+                                   st.session_state.get("fitted_eps23") is not None)
                 fit_epsts23_btn = st.button(
                     "Fit εTS₂₃ (All data)", 
                     key="btn_fit_epsts23", 
@@ -1754,16 +1814,20 @@ with col_fit:
                                 fit_epsTS3=False,
                                 fit_epsTS23=True
                             )
-                            fit_progress.progress(0.5, text="Solving equilibrium with fitted epsTS23 synergy parameter...")
-                            model.solve_equil(print_msg=False)
-                            model.to_pandas()
-                            fit_progress.progress(1.0, text="Fit & Simulation updated!")
-                            
+                            log_runtime_state("after fit optimization")
                             st.session_state["fitted_epsTS23"] = model.epsTS23
+                            
+                            fit_progress.progress(0.8, text="Generating minimal grid preview...")
+                            try:
+                                preview_model = run_minimal_simulation_preview(model_type, model, protein, cosolutes, T, None, phi2_max, phi3_max)
+                                st.session_state["solved_model"] = preview_model
+                                st.session_state["solved_model_type"] = model_type
+                            except Exception as e:
+                                logger.warning(f"Failed to generate minimal preview: {e}")
+                                
                             st.session_state["fit_updated"] = True
-                            st.session_state["solved_model"] = model
-                            st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
+                            fit_progress.progress(1.0, text="Fit & Preview updated!")
                             st.session_state["fit_success_msg"] = f"Successfully fitted εTS₂₃: {model.epsTS23:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
@@ -1828,10 +1892,22 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
     
     solved_model = st.session_state["solved_model"]
     
+    # Persist the checkbox state across fitting reruns
+    if "persistent_show_exp" not in st.session_state:
+        st.session_state["persistent_show_exp"] = False
+
+    def update_show_exp():
+        st.session_state["persistent_show_exp"] = st.session_state["show_exp_data_widget"]
+
     # Checkbox to overlay experimental data (shown only if some exp data is uploaded)
     show_exp = False
     if st.session_state["exp_data_loaded"]:
-        show_exp = st.checkbox("Overlay uploaded experimental data on plots", value=False, key="show_exp_data")
+        show_exp = st.checkbox(
+            "Overlay uploaded experimental data on plots", 
+            value=st.session_state["persistent_show_exp"], 
+            key="show_exp_data_widget",
+            on_change=update_show_exp
+        )
         
     plot_option = st.selectbox(
         "Select Plotting Mode",
@@ -2712,5 +2788,38 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     _display_and_export_plotly(pfig, "fh_crowding_ternary_slice_plot", "tern_slice_plot")
                 except Exception as e:
                     st.error(f"Error rendering custom 1D slice plot: {e}")
+
+# ---------------------------------------------------------------------------
+# Explicit Post-Fit Simulation Trigger
+# ---------------------------------------------------------------------------
+if st.session_state.get("is_fitting_mode"):
+    st.markdown("---")
+    styles.section_header("Run Full Simulation", "🚀")
+    st.info("A minimal grid preview is shown above. Run the full simulation to calculate the denser grid.")
+    if st.button("🚀 Run full simulation with fitted parameters", use_container_width=True):
+        with st.spinner("Solving full grid... (This may take a moment)"):
+            log_runtime_state("before manual run simulation")
+            try:
+                model.solve_equil()
+                if model_type == "Ternary Crowding Model":
+                    # For ternary, we also need to call to_pandas if it was deferred
+                    model.to_pandas()
+                else:
+                    model.to_pandas()
+                
+                log_runtime_state("after manual run simulation")
+                st.session_state["solved_model"] = model
+                st.session_state["solved_model_type"] = model_type
+                
+                # Clear old CSV cache
+                st.session_state.pop("csv_data", None)
+                st.session_state.pop("csv_model_id", None)
+                
+                st.success("Simulation complete!")
+                st.rerun()
+            except MemoryError:
+                st.error("**Memory Exhausted!** The grid resolution is too high for this deployment.")
+            except Exception as e:
+                st.error(f"Simulation failed: {e}")
 
 citation.render_about_and_citation()

@@ -536,9 +536,9 @@ class TernaryCrowdingModel(CosoluteMixture):
         self.mu1, self.mu2, self.mu3 = self.cal_mu1(), self.cal_mu2(), self.cal_mu3()
         self.phi2s,self.phi3s = np.zeros(self.phi2.shape), np.zeros(self.phi3.shape)
         self.phi2s2, self.phi2s3, self.phi3s3 = np.zeros(self.phi2.shape), np.zeros(self.phi2.shape), np.zeros(self.phi3.shape)
-        # solve for final eps
-        self.solve_equil()
-        self.to_pandas()
+        # Note: We intentionally do not solve the full grid automatically here 
+        # to prevent out-of-memory errors on large UI grids. 
+        # The user must call `solve_equil()` explicitly if they want the full simulation.
 
     def fit_epsTS(self, exp_conc2, exp_conc3, exp_ddH, exp_TddS,
                   concentration_type='phi', disp=True,
@@ -633,9 +633,9 @@ class TernaryCrowdingModel(CosoluteMixture):
         self.mu1, self.mu2, self.mu3 = self.cal_mu1(), self.cal_mu2(), self.cal_mu3()
         self.phi2s,self.phi3s = np.zeros(self.phi2.shape), np.zeros(self.phi3.shape)
         self.phi2s2, self.phi2s3, self.phi3s3 = np.zeros(self.phi2.shape), np.zeros(self.phi2.shape), np.zeros(self.phi3.shape)
-        # solve for final eps
-        self.solve_equil()
-        #self.to_pandas()
+        # Note: We intentionally do not solve the full grid automatically here 
+        # to prevent out-of-memory errors on large UI grids. 
+        # The user must call `solve_equil()` explicitly if they want the full simulation.
 
     def msd_fit_eps_2(self,eps, ddG):
         self.eps2 = eps[0]
