@@ -698,7 +698,7 @@ if model_type == "Binary Crowding Model":
     st.sidebar.subheader("Soft Interaction (ε)")
     
     eps   = st.sidebar.number_input("ε (soft interaction)",              step=0.01, format="%.4f", key="bin_eps_input")
-    epsTS = st.sidebar.number_input("εₜₛ (entropy component of ε)",     step=0.01, format="%.4f", key="bin_epsts_input")
+    epsTS = st.sidebar.number_input("εTS (entropy component of ε)",     step=0.01, format="%.4f", key="bin_epsts_input")
 
     st.sidebar.subheader("Simulation Grid")
     dphiC = st.sidebar.number_input(
@@ -765,7 +765,7 @@ else:
     chiTS12 = st.sidebar.number_input("χₜₛ₁₂ (entropy component)",      key="chiTS12", step=0.01, value=4.0, format="%.4f")
     
     eps2    = st.sidebar.number_input("ε₂ (soft interaction)",           step=0.01, value=0.0, format="%.4f", key="tern_eps2_input")
-    epsTS2  = st.sidebar.number_input("εₜₛ₂ (entropy component of ε)",  step=0.01, value=0.0, format="%.4f", key="tern_epsts2_input")
+    epsTS2  = st.sidebar.number_input("εTS₂ (entropy component of ε)",  step=0.01, value=0.0, format="%.4f", key="tern_epsts2_input")
 
     # --- Cosolute 3 ---
     st.sidebar.subheader("Cosolute 3")
@@ -787,7 +787,7 @@ else:
     chiTS13 = st.sidebar.number_input("χₜₛ₁₃ (entropy component)",      key="chiTS13", step=0.01, value=4.0, format="%.4f")
     
     eps3    = st.sidebar.number_input("ε₃ (soft interaction)",           step=0.01, value=0.0, format="%.4f", key="tern_eps3_input")
-    epsTS3  = st.sidebar.number_input("εₜₛ₃ (entropy component of ε)",  step=0.01, value=0.0, format="%.4f", key="tern_epsts3_input")
+    epsTS3  = st.sidebar.number_input("εTS₃ (entropy component of ε)",  step=0.01, value=0.0, format="%.4f", key="tern_epsts3_input")
 
     # --- Cosolute–cosolute non-ideal mixing ---
     st.sidebar.subheader("Cosolute–Cosolute Mixing (χ₂₃)")
@@ -797,7 +797,7 @@ else:
     # --- Synergy parameter (three-body coupling) ---
     st.sidebar.subheader("Synergy Parameter (ε₂₃)")
     eps23   = st.sidebar.number_input("ε₂₃ (synergy)",                step=0.01, value=0.0, format="%.4f", key="eps23")
-    epsTS23 = st.sidebar.number_input("εₜₛ₂₃ (entropy component)",   step=0.01, value=0.0, format="%.4f", key="epsTS23")
+    epsTS23 = st.sidebar.number_input("εTS₂₃ (entropy component)",   step=0.01, value=0.0, format="%.4f", key="epsTS23")
 
     # --- Concentration grid ---
     st.sidebar.subheader("Simulation Grid")
@@ -1100,17 +1100,17 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
             if upload_mode == "Columns (conc2, conc3, potential)":
                 col_tf1, col_tf2, col_tf3 = st.columns(3)
                 with col_tf1:
-                    f_G = st.file_uploader("Upload dG CSV (conc2, conc3, dG)", type=["csv"], key="tern_g_uploader")
+                    f_G = st.file_uploader("Upload ΔG CSV (conc2, conc3, ΔG)", type=["csv"], key="tern_g_uploader")
                 with col_tf2:
-                    f_H = st.file_uploader("Upload dH CSV (conc2, conc3, dH)", type=["csv"], key="tern_h_uploader")
+                    f_H = st.file_uploader("Upload ΔH CSV (conc2, conc3, ΔH)", type=["csv"], key="tern_h_uploader")
                 with col_tf3:
-                    f_S = st.file_uploader("Upload TdS CSV (conc2, conc3, TdS)", type=["csv"], key="tern_s_uploader")
+                    f_S = st.file_uploader("Upload TΔS CSV (conc2, conc3, TΔS)", type=["csv"], key="tern_s_uploader")
                 
                 if f_G:
                     try:
                         df = read_uploaded_csv(f_G)
                         if "conc2" not in df.columns or "conc3" not in df.columns or "dG" not in df.columns:
-                            st.error(f"Missing required columns for ternary dG. Expected: 'conc2', 'conc3', 'dG'.\n\nDetected columns: {list(df.columns)}")
+                            st.error(f"Missing required columns for ternary ΔG. Expected: 'conc2', 'conc3', 'dG'.\n\nDetected columns: {list(df.columns)}")
                         else:
                             df["conc2"] = pd.to_numeric(df["conc2"], errors='coerce')
                             df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
@@ -1132,7 +1132,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     try:
                         df = read_uploaded_csv(f_H)
                         if "conc2" not in df.columns or "conc3" not in df.columns or "dH" not in df.columns:
-                            st.error(f"Missing required columns for ternary dH. Expected: 'conc2', 'conc3', 'dH'.\n\nDetected columns: {list(df.columns)}")
+                            st.error(f"Missing required columns for ternary ΔH. Expected: 'conc2', 'conc3', 'dH'.\n\nDetected columns: {list(df.columns)}")
                         else:
                             df["conc2"] = pd.to_numeric(df["conc2"], errors='coerce')
                             df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
@@ -1154,7 +1154,7 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     try:
                         df = read_uploaded_csv(f_S)
                         if "conc2" not in df.columns or "conc3" not in df.columns or "TdS" not in df.columns:
-                            st.error(f"Missing required columns for ternary TdS. Expected: 'conc2', 'conc3', 'TdS'.\n\nDetected columns: {list(df.columns)}")
+                            st.error(f"Missing required columns for ternary TΔS. Expected: 'conc2', 'conc3', 'TdS'.\n\nDetected columns: {list(df.columns)}")
                         else:
                             df["conc2"] = pd.to_numeric(df["conc2"], errors='coerce')
                             df["conc3"] = pd.to_numeric(df["conc3"], errors='coerce')
@@ -1264,7 +1264,7 @@ with col_fit:
                 fit_eps_btn = st.button("Fit ε (from ΔΔG)", key="btn_fit_eps", use_container_width=True)
                 if fit_eps_btn:
                     if st.session_state.get("exp_ddG") is not None and st.session_state.get("exp_conc_G") is not None:
-                        fit_progress = st.progress(0, text="Fitting eps...")
+                        fit_progress = st.progress(0, text="Fitting ε...")
                         try:
                             # Filter NaNs
                             conc_G = np.array(st.session_state["exp_conc_G"])
@@ -1306,12 +1306,12 @@ with col_fit:
             # Button 2: Fit epsTS
             with col_b2:
                 st.markdown("**Entropy & Enthalpy**")
-                fit_epsts_btn = st.button("Fit εₜₛ (from ΔΔH, TΔΔS)", key="btn_fit_epsts", use_container_width=True)
+                fit_epsts_btn = st.button("Fit εTS (from ΔΔH, TΔΔS)", key="btn_fit_epsts", use_container_width=True)
                 if fit_epsts_btn:
                     if (st.session_state.get("exp_ddH") is not None and 
                         st.session_state.get("exp_TddS") is not None and 
                         st.session_state.get("exp_conc_T") is not None):
-                        fit_progress = st.progress(0, text="Fitting epsTS...")
+                        fit_progress = st.progress(0, text="Fitting εTS...")
                         try:
                             # Filter NaNs
                             conc_T = np.array(st.session_state["exp_conc_T"])
@@ -1340,7 +1340,7 @@ with col_fit:
                             st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
                             
-                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS: {model.epsTS:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted εTS: {model.epsTS:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1364,7 +1364,7 @@ with col_fit:
             with col_m2:
                 epsts_val = f"{model.epsTS:.4f}" if st.session_state["fitted_epsTS"] is not None else "—"
                 st.markdown(
-                    styles.param_card("εₜₛ", epsts_val, "Soft interaction (entropy component)"),
+                    styles.param_card("εTS", epsts_val, "Soft interaction (entropy component)"),
                     unsafe_allow_html=True
                 )
             
@@ -1390,12 +1390,12 @@ with col_fit:
                 st.markdown("**Free Energy**")
                 
                 # Fit eps2
-                fit_eps2_btn = st.button("Fit ε₂ (phi3 = 0)", key="btn_fit_eps2", use_container_width=True)
+                fit_eps2_btn = st.button("Fit ε₂ (φ₃ = 0)", key="btn_fit_eps2", use_container_width=True)
                 if fit_eps2_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
                         st.session_state.get("exp_conc3_G") is not None):
-                        fit_progress = st.progress(0, text="Fitting eps2 (where phi3 = 0)...")
+                        fit_progress = st.progress(0, text="Fitting ε₂ (where φ₃ = 0)...")
                         try:
                             conc2 = np.array(st.session_state["exp_conc2_G"])
                             conc3 = np.array(st.session_state["exp_conc3_G"])
@@ -1425,7 +1425,7 @@ with col_fit:
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
-                            st.session_state["fit_success_msg"] = f"Successfully fitted eps2: {model.eps2:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted ε₂: {model.eps2:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1438,12 +1438,12 @@ with col_fit:
                         st.error("Please upload experimental Ternary ΔG data first!")
                 
                 # Fit eps3
-                fit_eps3_btn = st.button("Fit ε₃ (phi2 = 0)", key="btn_fit_eps3", use_container_width=True)
+                fit_eps3_btn = st.button("Fit ε₃ (φ₂ = 0)", key="btn_fit_eps3", use_container_width=True)
                 if fit_eps3_btn:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
                         st.session_state.get("exp_conc3_G") is not None):
-                        fit_progress = st.progress(0, text="Fitting eps3 (where phi2 = 0)...")
+                        fit_progress = st.progress(0, text="Fitting ε₃ (where φ₂ = 0)...")
                         try:
                             conc2 = np.array(st.session_state["exp_conc2_G"])
                             conc3 = np.array(st.session_state["exp_conc3_G"])
@@ -1473,7 +1473,7 @@ with col_fit:
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
-                            st.session_state["fit_success_msg"] = f"Successfully fitted eps3: {model.eps3:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted ε₃: {model.eps3:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1499,7 +1499,7 @@ with col_fit:
                     if (st.session_state.get("exp_val_G") is not None and 
                         st.session_state.get("exp_conc2_G") is not None and 
                         st.session_state.get("exp_conc3_G") is not None):
-                        fit_progress = st.progress(0, text="Fitting eps23 (using all data)...")
+                        fit_progress = st.progress(0, text="Fitting ε₂₃ (using all data)...")
                         try:
                             conc2 = np.array(st.session_state["exp_conc2_G"])
                             conc3 = np.array(st.session_state["exp_conc3_G"])
@@ -1533,7 +1533,7 @@ with col_fit:
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
-                            st.session_state["fit_success_msg"] = f"Successfully fitted eps23: {model.eps23:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted ε₂₃: {model.eps23:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1550,13 +1550,13 @@ with col_fit:
                 st.markdown("**Entroppy & Enthalpy**")
                 
                 # Fit epsTS2
-                fit_epsts2_btn = st.button("Fit εₜₛ₂ (phi3 = 0)", key="btn_fit_epsts2", use_container_width=True)
+                fit_epsts2_btn = st.button("Fit εTS₂ (φ₃ = 0)", key="btn_fit_epsts2", use_container_width=True)
                 if fit_epsts2_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
                         st.session_state.get("exp_conc2_T") is not None and 
                         st.session_state.get("exp_conc3_T") is not None):
-                        fit_progress = st.progress(0, text="Fitting epsTS2 (where phi3 = 0)...")
+                        fit_progress = st.progress(0, text="Fitting εTS₂ (where φ₃ = 0)...")
                         try:
                             conc2 = np.array(st.session_state["exp_conc2_T"])
                             conc3 = np.array(st.session_state["exp_conc3_T"])
@@ -1588,7 +1588,7 @@ with col_fit:
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
-                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS2: {model.epsTS2:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted εTS₂: {model.epsTS2:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1601,13 +1601,13 @@ with col_fit:
                         st.error("Please upload experimental Ternary ΔH and TΔS data first!")
 
                 # Fit epsTS3
-                fit_epsts3_btn = st.button("Fit εₜₛ₃ (phi2 = 0)", key="btn_fit_epsts3", use_container_width=True)
+                fit_epsts3_btn = st.button("Fit εTS₃ (φ₂ = 0)", key="btn_fit_epsts3", use_container_width=True)
                 if fit_epsts3_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
                         st.session_state.get("exp_conc2_T") is not None and 
                         st.session_state.get("exp_conc3_T") is not None):
-                        fit_progress = st.progress(0, text="Fitting epsTS3 (where phi2 = 0)...")
+                        fit_progress = st.progress(0, text="Fitting εTS₃ (where φ₂ = 0)...")
                         try:
                             conc2 = np.array(st.session_state["exp_conc2_T"])
                             conc3 = np.array(st.session_state["exp_conc3_T"])
@@ -1639,7 +1639,7 @@ with col_fit:
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
-                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS3: {model.epsTS3:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted εTS₃: {model.epsTS3:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1655,18 +1655,18 @@ with col_fit:
                 epsts23_enabled = (st.session_state.get("fitted_epsTS2") is not None and 
                                    st.session_state.get("fitted_epsTS3") is not None)
                 fit_epsts23_btn = st.button(
-                    "Fit εₜₛ₂₃ (All data)", 
+                    "Fit εTS₂₃ (All data)", 
                     key="btn_fit_epsts23", 
                     use_container_width=True,
                     disabled=not epsts23_enabled,
-                    help="Only active after εₜₛ₂ and εₜₛ₃ are successfully fitted."
+                    help="Only active after εTS₂ and εTS₃ are successfully fitted."
                 )
                 if fit_epsts23_btn:
                     if (st.session_state.get("exp_val_H") is not None and 
                         st.session_state.get("exp_val_S") is not None and 
                         st.session_state.get("exp_conc2_T") is not None and 
                         st.session_state.get("exp_conc3_T") is not None):
-                        fit_progress = st.progress(0, text="Fitting epsTS23 (using all data)...")
+                        fit_progress = st.progress(0, text="Fitting εTS₂₃ (using all data)...")
                         try:
                             conc2 = np.array(st.session_state["exp_conc2_T"])
                             conc3 = np.array(st.session_state["exp_conc3_T"])
@@ -1702,7 +1702,7 @@ with col_fit:
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
                             st.session_state["is_fitting_mode"] = True
-                            st.session_state["fit_success_msg"] = f"Successfully fitted epsTS23: {model.epsTS23:.4f}"
+                            st.session_state["fit_success_msg"] = f"Successfully fitted εTS₂₃: {model.epsTS23:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
                                 st.session_state["fit_warning_msg"] = f"⚠️ Optimization Warning: {msg}"
@@ -1732,9 +1732,9 @@ with col_fit:
                 epsts3_val = f"{model.epsTS3:.4f}" if st.session_state["fitted_epsTS3"] is not None else "—"
                 epsts23_val = f"{model.epsTS23:.4f}" if st.session_state["fitted_epsTS23"] is not None else "—"
                 st.markdown(
-                    styles.param_card("εₜₛ₂", epsts2_val, "Cosolute 2 entropy") +
-                    styles.param_card("εₜₛ₃", epsts3_val, "Cosolute 3 entropy") +
-                    styles.param_card("εₜₛ₂₃ (synergy)", epsts23_val, "Entropy synergy coupling"),
+                    styles.param_card("εTS₂", epsts2_val, "Cosolute 2 entropy") +
+                    styles.param_card("εTS₃", epsts3_val, "Cosolute 3 entropy") +
+                    styles.param_card("εTS₂₃ (synergy)", epsts23_val, "Entropy synergy coupling"),
                     unsafe_allow_html=True
                 )
                 
@@ -1782,7 +1782,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             st.subheader("Standard 3x3 Results Plot")
             col1, col2 = st.columns(2)
             with col1:
-                conc_type_plot = st.selectbox("Concentration axis type", ["phi", "molar", "molal"], key="bin_plot_conc")
+                conc_type_display = st.selectbox("Concentration axis type", ["φ", "molar", "molal"], key="bin_plot_conc")
+                conc_type_plot = "phi" if conc_type_display == "φ" else conc_type_display
             with col2:
                 plot_unit = st.selectbox("Plotting Unit", ["kJ/mol", "kcal/mol"], key="bin_plot_unit")
             
@@ -1834,17 +1835,17 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             
             presets = [
                 "ΔΔG (3x3 contour)",
-                "phiS (Contours of subdomain concentrations)",
+                "φS (Contours of subdomain concentrations)",
                 "Ms (Contours of subdomain volume fractions)",
-                "mus2 (Contours of subdomain 2 chemical potentials)",
-                "mus3 (Contours of subdomain 3 chemical potentials)",
+                "μS2 (Contours of subdomain 2 chemical potentials)",
+                "μS3 (Contours of subdomain 3 chemical potentials)",
                 "TΔS_mix (Contours of mixing entropy)",
                 "ΔG_mix (Contours of mixing free energy)",
-                "ΔΔG_mu (Contours of ΔΔG chemical potentials)",
+                "ΔΔG_μ (Contours of ΔΔG chemical potentials)",
                 "TΔΔS (Contours of TΔΔS entropy)",
                 "ΔΔH (Contours of ΔΔH enthalpy)",
-                "Gamma (Contours of preferential interaction coefficients)",
-                "Gamma_mu (Contours of preferential interaction mu)"
+                "Γ (Contours of preferential interaction coefficients)",
+                "Γ_μ (Contours of preferential interaction μ)"
             ]
             if st.session_state.get("is_fitting_mode", False):
                 has_eps = (st.session_state.get("fitted_eps2") is not None and 
@@ -1860,27 +1861,27 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             
             if "ΔΔG (3x3 contour)" in preset_plot:
                 fig = plotter.plot_ddG()
-            elif "phiS" in preset_plot:
+            elif "φS" in preset_plot:
                 fig = plotter.plot_phiS()
             elif "Ms" in preset_plot:
                 fig = plotter.plot_Ms()
-            elif "mus2" in preset_plot:
+            elif "μS2" in preset_plot:
                 fig = plotter.plot_mus2()
-            elif "mus3" in preset_plot:
+            elif "μS3" in preset_plot:
                 fig = plotter.plot_mus3()
             elif "TΔS_mix" in preset_plot:
                 fig = plotter.plot_TdS_mix()
             elif "ΔG_mix" in preset_plot:
                 fig = plotter.plot_dG_mix()
-            elif "ΔΔG_mu" in preset_plot:
+            elif "ΔΔG_μ" in preset_plot:
                 fig = plotter.plot_ddG_mu()
             elif "TΔΔS" in preset_plot:
                 fig = plotter.plot_TddS()
             elif "ΔΔH" in preset_plot:
                 fig = plotter.plot_ddH()
-            elif "Gamma_mu" in preset_plot:
+            elif "Γ_μ" in preset_plot:
                 fig = plotter.plot_Gamma_mu()
-            elif "Gamma" in preset_plot:
+            elif "Γ" in preset_plot:
                 fig = plotter.plot_Gamma()
                 
             # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
@@ -2130,10 +2131,10 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 "Entropy (TΔΔS) [kT]": ("TddS", r'$T\Delta\Delta S^{0} / (k_B T)$', "TΔΔS⁰ / (k_B T)"),
                 "Entropy (TΔΔS) [kJ]": ("TddS_kJ", r'$T\Delta\Delta S^{0}\ \mathrm{[kJ/mol]}$', "TΔΔS⁰ [kJ/mol]"),
                 "Osmotic Pressure": ("osm", r'$\Pi\ \mathrm{(Osmolal)}$', "Π (Osmolal)"),
-                "Preferential Interaction 2 (Gamma_2)": ("Gamma_2", r'$\Delta\Gamma_2$', "ΔΓ₂"),
-                "Preferential Interaction 3 (Gamma_3)": ("Gamma_3", r'$\Delta\Gamma_3$', "ΔΓ₃"),
+                "Preferential Interaction 2 (Γ₂)": ("Gamma_2", r'$\Delta\Gamma_2$', "ΔΓ₂"),
+                "Preferential Interaction 3 (Γ₃)": ("Gamma_3", r'$\Delta\Gamma_3$', "ΔΓ₃"),
                 "Preferential Interaction 1,2 (Gamma_1_2)": ("Gamma_1_2", r'$\Delta\Gamma_{1,2}$', "ΔΓ₁,₂"),
-                "Preferential Interaction 1,3 (Gamma_1_3)": ("Gamma_1_3", r'$\Delta\Gamma_{1,3}$', "ΔΓ₁,₃"),
+                "Preferential Interaction 1,3 (Γ₁,₃)": ("Gamma_1_3", r'$\Delta\Gamma_{1,3}$', "ΔΓ₁,₃"),
             }
             
             if st.session_state.get("is_fitting_mode", False) and tern_mode in ["2D Contour Plot", "1D Slice Plot"]:
@@ -2432,7 +2433,7 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 
                 slice_type = st.selectbox(
                     "Select Slice Path",
-                    ["Constant phi3", "Constant phi2", "Diagonal (phi2 = phi3)"]
+                    ["Constant φ₃", "Constant φ₂", "Diagonal (φ₂ = φ₃)"]
                 )
                 
                 # Pre-calculate experimental unique values for slices
@@ -2466,17 +2467,17 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 exp_phi2_unique = merge_close(exp_phi2_list) if exp_phi2_list else []
                 exp_phi3_unique = merge_close(exp_phi3_list) if exp_phi3_list else []
 
-                if slice_type == "Constant phi3":
+                if slice_type == "Constant φ₃":
                     method = st.radio("Value selection method", ["Slider", "Manual Entry", "Experimental Data"], horizontal=True, key="meth_phi3")
                     if method == "Slider":
-                        val3 = st.select_slider("Select constant phi3 value", options=list(phi3_axis))
+                        val3 = st.select_slider("Select constant φ₃ value", options=list(phi3_axis))
                     elif method == "Manual Entry":
-                        val3_in = st.number_input("Enter constant phi3 value", min_value=0.0, value=float(phi3_axis[0]), step=0.01)
+                        val3_in = st.number_input("Enter constant φ₃ value", min_value=0.0, value=float(phi3_axis[0]), step=0.01)
                         val3 = phi3_axis[np.argmin(np.abs(phi3_axis - val3_in))]
                         st.caption(f"Snapped to nearest grid value: {val3:.4f}")
                     else:
                         if len(exp_phi3_unique) > 0:
-                            val3_in = st.selectbox("Select phi3 from experimental data", exp_phi3_unique)
+                            val3_in = st.selectbox("Select φ₃ from experimental data", exp_phi3_unique)
                             val3 = phi3_axis[np.argmin(np.abs(phi3_axis - val3_in))]
                             st.caption(f"Snapped to nearest grid value: {val3:.4f}")
                         else:
@@ -2487,17 +2488,17 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     x_data = phi2_axis
                     x_label_unicode = "φ₂"
                     slicer = lambda arr2d: arr2d[idx3, :]
-                elif slice_type == "Constant phi2":
+                elif slice_type == "Constant φ₂":
                     method = st.radio("Value selection method", ["Slider", "Manual Entry", "Experimental Data"], horizontal=True, key="meth_phi2")
                     if method == "Slider":
-                        val2 = st.select_slider("Select constant phi2 value", options=list(phi2_axis))
+                        val2 = st.select_slider("Select constant φ₂ value", options=list(phi2_axis))
                     elif method == "Manual Entry":
-                        val2_in = st.number_input("Enter constant phi2 value", min_value=0.0, value=float(phi2_axis[0]), step=0.01)
+                        val2_in = st.number_input("Enter constant φ₂ value", min_value=0.0, value=float(phi2_axis[0]), step=0.01)
                         val2 = phi2_axis[np.argmin(np.abs(phi2_axis - val2_in))]
                         st.caption(f"Snapped to nearest grid value: {val2:.4f}")
                     else:
                         if len(exp_phi2_unique) > 0:
-                            val2_in = st.selectbox("Select phi2 from experimental data", exp_phi2_unique)
+                            val2_in = st.selectbox("Select φ₂ from experimental data", exp_phi2_unique)
                             val2 = phi2_axis[np.argmin(np.abs(phi2_axis - val2_in))]
                             st.caption(f"Snapped to nearest grid value: {val2:.4f}")
                         else:
@@ -2605,11 +2606,11 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                         
                         # Find points in experimental dataset that align with the slice path (within tolerance)
                         tolerance = 0.005
-                        if slice_type == "Constant phi3":
+                        if slice_type == "Constant φ₃":
                             mask = np.abs(exp_y_phi - val3) < tolerance
                             slice_exp_x = exp_x_phi[mask]
                             slice_exp_y = exp_val[mask]
-                        elif slice_type == "Constant phi2":
+                        elif slice_type == "Constant φ₂":
                             mask = np.abs(exp_x_phi - val2) < tolerance
                             slice_exp_x = exp_y_phi[mask]  # plot against phi3 axis
                             slice_exp_y = exp_val[mask]
