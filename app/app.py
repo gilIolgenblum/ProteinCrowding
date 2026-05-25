@@ -1865,22 +1865,22 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 fig = plotter.plot_mus2()
             elif "mus3" in preset_plot:
                 fig = plotter.plot_mus3()
-            elif "TdS_mix" in preset_plot:
+            elif "TΔS_mix" in preset_plot:
                 fig = plotter.plot_TdS_mix()
-            elif "dG_mix" in preset_plot:
+            elif "ΔG_mix" in preset_plot:
                 fig = plotter.plot_dG_mix()
-            elif "ddG_mu" in preset_plot:
+            elif "ΔΔG_mu" in preset_plot:
                 fig = plotter.plot_ddG_mu()
-            elif "TddS" in preset_plot:
+            elif "TΔΔS" in preset_plot:
                 fig = plotter.plot_TddS()
-            elif "ddH" in preset_plot:
+            elif "ΔΔH" in preset_plot:
                 fig = plotter.plot_ddH()
-            elif "Gamma" in preset_plot:
-                fig = plotter.plot_Gamma()
             elif "Gamma_mu_der" in preset_plot:
                 fig = plotter.plot_Gamma_mu_der()
             elif "Gamma_mu" in preset_plot:
                 fig = plotter.plot_Gamma_mu()
+            elif "Gamma" in preset_plot:
+                fig = plotter.plot_Gamma()
                 
             # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
             # If ternary contour preset and show_exp is enabled, overlay exp points on the subplots
