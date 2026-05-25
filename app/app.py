@@ -1307,7 +1307,73 @@ with st.expander("📊 Upload Experimental Data & Unit Settings (Optional)", exp
                     except Exception as ex:
                         st.error(f"Error reading TΔS CSV file: {ex}")
             else:
-                st.info("Matrix formats are typically fitted via columns. Please ensure CSV contains 'conc2', 'conc3' and data columns.")
+                col_tf1, col_tf2, col_tf3 = st.columns(3)
+                with col_tf1:
+                    f_G_mat = st.file_uploader("Upload ΔG Matrix", type=["csv"], key="tern_g_mat_uploader", help="First row: conc3 values. First column: conc2 values. Inner cells: ΔG")
+                    st.download_button("📄 Template", data=",0.01,0.05\n0.01,-1.2,-1.5\n0.05,-2.1,-2.4\n", file_name="ternary_dG_matrix.csv", mime="text/csv", key="btn_tern_g_mat")
+                with col_tf2:
+                    f_H_mat = st.file_uploader("Upload ΔH Matrix", type=["csv"], key="tern_h_mat_uploader", help="First row: conc3 values. First column: conc2 values. Inner cells: ΔH")
+                    st.download_button("📄 Template", data=",0.01,0.05\n0.01,-4.2,-4.5\n0.05,-5.1,-5.4\n", file_name="ternary_dH_matrix.csv", mime="text/csv", key="btn_tern_h_mat")
+                with col_tf3:
+                    f_S_mat = st.file_uploader("Upload TΔS Matrix", type=["csv"], key="tern_s_mat_uploader", help="First row: conc3 values. First column: conc2 values. Inner cells: TΔS")
+                    st.download_button("📄 Template", data=",0.01,0.05\n0.01,-3.0,-3.0\n0.05,-3.0,-3.0\n", file_name="ternary_TdS_matrix.csv", mime="text/csv", key="btn_tern_s_mat")
+
+                def process_matrix(f_obj, val_name):
+                    df = read_uploaded_csv(f_obj)
+                    df = df.set_index(df.columns[0])
+                    df.index = pd.to_numeric(df.index, errors='coerce')
+                    df.columns = pd.to_numeric(df.columns, errors='coerce')
+                    df_flat = df.reset_index().melt(id_vars=df.index.name)
+                    df_flat.columns = ['conc2', 'conc3', val_name]
+                    df_flat['conc2'] = pd.to_numeric(df_flat['conc2'], errors='coerce')
+                    df_flat['conc3'] = pd.to_numeric(df_flat['conc3'], errors='coerce')
+                    df_flat[val_name] = pd.to_numeric(df_flat[val_name], errors='coerce')
+                    df_flat = df_flat.dropna(subset=['conc2', 'conc3', val_name])
+                    df_flat.loc[df_flat["conc2"] <= 0.0, "conc2"] = 0.0001
+                    df_flat.loc[df_flat["conc3"] <= 0.0, "conc3"] = 0.0001
+                    return df_flat
+
+                if f_G_mat:
+                    try:
+                        df_g = process_matrix(f_G_mat, "dG")
+                        st.session_state["exp_conc2_G"] = df_g["conc2"].values
+                        st.session_state["exp_conc3_G"] = df_g["conc3"].values
+                        st.session_state["exp_conc2"] = df_g["conc2"].values
+                        st.session_state["exp_conc3"] = df_g["conc3"].values
+                        st.session_state["raw_exp_val_G"] = df_g["dG"].values
+                        st.session_state["exp_val_G"] = df_g["dG"].values * energy_mult
+                        st.session_state["exp_data_loaded"] = True
+                        st.success("Ternary ΔG matrix loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading ΔG Matrix file: {ex}")
+                
+                if f_H_mat:
+                    try:
+                        df_h = process_matrix(f_H_mat, "dH")
+                        st.session_state["exp_conc2_T"] = df_h["conc2"].values
+                        st.session_state["exp_conc3_T"] = df_h["conc3"].values
+                        st.session_state["exp_conc2"] = df_h["conc2"].values
+                        st.session_state["exp_conc3"] = df_h["conc3"].values
+                        st.session_state["raw_exp_val_H"] = df_h["dH"].values
+                        st.session_state["exp_val_H"] = df_h["dH"].values * energy_mult
+                        st.session_state["exp_data_loaded"] = True
+                        st.success("Ternary ΔH matrix loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading ΔH Matrix file: {ex}")
+
+                if f_S_mat:
+                    try:
+                        df_s = process_matrix(f_S_mat, "TdS")
+                        st.session_state["exp_conc2_T"] = df_s["conc2"].values
+                        st.session_state["exp_conc3_T"] = df_s["conc3"].values
+                        st.session_state["exp_conc2"] = df_s["conc2"].values
+                        st.session_state["exp_conc3"] = df_s["conc3"].values
+                        st.session_state["raw_exp_val_S"] = df_s["TdS"].values
+                        st.session_state["exp_val_S"] = df_s["TdS"].values * energy_mult
+                        st.session_state["exp_data_loaded"] = True
+                        st.success("Ternary TΔS matrix loaded!")
+                    except Exception as ex:
+                        st.error(f"Error reading TΔS Matrix file: {ex}")
 
 
 # ---------------------------------------------------------------------------
