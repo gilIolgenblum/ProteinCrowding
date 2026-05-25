@@ -2434,15 +2434,76 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                     ["Constant phi3", "Constant phi2", "Diagonal (phi2 = phi3)"]
                 )
                 
+                # Pre-calculate experimental unique values for slices
+                exp_phi2_list = []
+                exp_phi3_list = []
+                if show_exp:
+                    if st.session_state.get("exp_conc2_G") is not None and st.session_state.get("exp_conc3_G") is not None:
+                        try:
+                            phi2_G = convert_exp_conc(st.session_state["exp_conc2_G"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
+                            phi3_G = convert_exp_conc(st.session_state["exp_conc3_G"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3_G"])
+                            exp_phi2_list.extend(phi2_G)
+                            exp_phi3_list.extend(phi3_G)
+                        except Exception: pass
+                    if st.session_state.get("exp_conc2_T") is not None and st.session_state.get("exp_conc3_T") is not None:
+                        try:
+                            phi2_T = convert_exp_conc(st.session_state["exp_conc2_T"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=2)
+                            phi3_T = convert_exp_conc(st.session_state["exp_conc3_T"], from_type=uploaded_conc_unit, to_type="phiC", model=solved_model, is_ternary=True, cosolute_idx=3, exp_conc3=st.session_state["exp_conc3_T"])
+                            exp_phi2_list.extend(phi2_T)
+                            exp_phi3_list.extend(phi3_T)
+                        except Exception: pass
+                        
+                def merge_close(vals, tol=0.005):
+                    if not len(vals): return []
+                    vals = np.sort(vals)
+                    merged = [vals[0]]
+                    for v in vals[1:]:
+                        if v - merged[-1] > tol:
+                            merged.append(v)
+                    return np.round(merged, 4)
+
+                exp_phi2_unique = merge_close(exp_phi2_list) if exp_phi2_list else []
+                exp_phi3_unique = merge_close(exp_phi3_list) if exp_phi3_list else []
+
                 if slice_type == "Constant phi3":
-                    val3 = st.select_slider("Select constant phi3 value", options=list(phi3_axis))
-                    idx3 = np.where(phi3_axis == val3)[0][0]
+                    method = st.radio("Value selection method", ["Slider", "Manual Entry", "Experimental Data"], horizontal=True, key="meth_phi3")
+                    if method == "Slider":
+                        val3 = st.select_slider("Select constant phi3 value", options=list(phi3_axis))
+                    elif method == "Manual Entry":
+                        val3_in = st.number_input("Enter constant phi3 value", min_value=0.0, value=float(phi3_axis[0]), step=0.01)
+                        val3 = phi3_axis[np.argmin(np.abs(phi3_axis - val3_in))]
+                        st.caption(f"Snapped to nearest grid value: {val3:.4f}")
+                    else:
+                        if len(exp_phi3_unique) > 0:
+                            val3_in = st.selectbox("Select phi3 from experimental data", exp_phi3_unique)
+                            val3 = phi3_axis[np.argmin(np.abs(phi3_axis - val3_in))]
+                            st.caption(f"Snapped to nearest grid value: {val3:.4f}")
+                        else:
+                            st.warning("No experimental data loaded.")
+                            val3 = phi3_axis[0]
+                            
+                    idx3 = np.argmin(np.abs(phi3_axis - val3))
                     x_data = phi2_axis
                     x_label_unicode = "φ₂"
                     slicer = lambda arr2d: arr2d[idx3, :]
                 elif slice_type == "Constant phi2":
-                    val2 = st.select_slider("Select constant phi2 value", options=list(phi2_axis))
-                    idx2 = np.where(phi2_axis == val2)[0][0]
+                    method = st.radio("Value selection method", ["Slider", "Manual Entry", "Experimental Data"], horizontal=True, key="meth_phi2")
+                    if method == "Slider":
+                        val2 = st.select_slider("Select constant phi2 value", options=list(phi2_axis))
+                    elif method == "Manual Entry":
+                        val2_in = st.number_input("Enter constant phi2 value", min_value=0.0, value=float(phi2_axis[0]), step=0.01)
+                        val2 = phi2_axis[np.argmin(np.abs(phi2_axis - val2_in))]
+                        st.caption(f"Snapped to nearest grid value: {val2:.4f}")
+                    else:
+                        if len(exp_phi2_unique) > 0:
+                            val2_in = st.selectbox("Select phi2 from experimental data", exp_phi2_unique)
+                            val2 = phi2_axis[np.argmin(np.abs(phi2_axis - val2_in))]
+                            st.caption(f"Snapped to nearest grid value: {val2:.4f}")
+                        else:
+                            st.warning("No experimental data loaded.")
+                            val2 = phi2_axis[0]
+                            
+                    idx2 = np.argmin(np.abs(phi2_axis - val2))
                     x_data = phi3_axis
                     x_label_unicode = "φ₃"
                     slicer = lambda arr2d: arr2d[:, idx2]
