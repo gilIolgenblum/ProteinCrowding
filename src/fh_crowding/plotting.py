@@ -44,7 +44,7 @@ class BinaryPlotter:
 
     def plot_results(self, concentration_type='phi', exp_conc=np.nan, exp_ddG=np.nan, err_ddG=np.nan,
                     exp_concT=np.nan, exp_ddH=np.nan, exp_TddS=np.nan, err_ddH=np.nan, err_TddS=np.nan,
-                    folding=True):
+                    folding=True, show_G=True, show_HTS=True):
         ''' 
         Plot model results 
 
@@ -110,71 +110,94 @@ class BinaryPlotter:
         axes[0,2].set_xlabel(str_conc)
         axes[0,2].set_ylabel(r'$\phi_C^{surf}$')
 
-        axes[1,0].plot(conc, ddA)
-        axes[1,0].plot(conc, ddA_nu)
-        axes[1,0].plot(conc, ddA_chi)
-        axes[1,0].plot(conc, ddA_eps)
-        if _is_valid_data(exp_conc, exp_ddG):
-            axes[1,0].errorbar(exp_conc, exp_ddG, yerr=_clean_yerr(err_ddG, len(exp_ddG)), marker='o', ls='', capsize=10, label='_nolegend_')
-        axes[1,0].set_xlabel(str_conc)
-        axes[1,0].set_ylabel(r'$\Delta\Delta G_i^{0}$ '+units)
-        axes[1,0].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
-        
-        axes[1,1].plot(conc, ddE)
-        axes[1,1].plot(conc, ddE_chi)
-        axes[1,1].plot(conc, ddE_eps)
-        if _is_valid_data(exp_concT, exp_ddH):
-            axes[1,1].errorbar(exp_concT, exp_ddH, yerr=_clean_yerr(err_ddH, len(exp_ddH)), marker='o', ls='', capsize=10, label='_nolegend_')
-        axes[1,1].set_xlabel(str_conc)
-        axes[1,1].set_ylabel(r'$\Delta\Delta H_i^{0}$ '+units)
-        axes[1,1].legend(['tot',r'$\chi$',r'$\varepsilon$'])
+        def _display_not_fitted(ax, xlabel, ylabel):
+            ax.clear()
+            ax.text(0.5, 0.5, 'Not Fitted', horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=12, color='gray')
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+            ax.set_xticks([])
+            ax.set_yticks([])
 
-        axes[1,2].plot(conc, TddS)
-        axes[1,2].plot(conc, TddS_nu)
-        axes[1,2].plot(conc, TddS_chi)
-        axes[1,2].plot(conc, TddS_eps)
-        if _is_valid_data(exp_concT, exp_TddS):
-            axes[1,2].errorbar(exp_concT, exp_TddS, yerr=_clean_yerr(err_TddS, len(exp_TddS)), marker='o', ls='', capsize=10, label='_nolegend_')
-        axes[1,2].set_xlabel(str_conc)
-        axes[1,2].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
-        axes[1,2].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
-
-        axes[2,0].plot(self.model.osm, ddA)
-        axes[2,0].plot(self.model.osm, ddA_nu)
-        axes[2,0].plot(self.model.osm, ddA_chi)
-        axes[2,0].plot(self.model.osm, ddA_eps)
-        axes[2,0].set_xlabel(r'$\Pi (Osmolal)$')
-        axes[2,0].set_ylabel(r'$\Delta\Delta G_i^{0}$ '+units)
-        axes[2,0].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
-
-        axes[2,1].plot([-max(abs(ddE)),max(abs(ddE))], [-max(abs(ddE)),max(abs(ddE))], color="darkgrey",label='_nolegend_') 
-        axes[2,1].plot([-max(abs(ddE)),max(abs(ddE))], [max(abs(ddE)),-max(abs(ddE))], color="darkgrey",label='_nolegend_')
-        axes[2,1].plot(ddE, TddS)
-        axes[2,1].plot(np.zeros(TddS_nu.shape), TddS_nu)
-        axes[2,1].plot(ddE_chi, TddS_chi)
-        axes[2,1].plot(ddE_eps, TddS_eps)
-        if _is_valid_data(exp_ddH, exp_TddS):
-            axes[2,1].plot(exp_ddH, exp_TddS, 'o', label='_nolegend_')   
-        axes[2,1].set_xlabel(r'$\Delta\Delta H_i^{0}$ '+units)
-        axes[2,1].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
-        axes[2,1].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
-
-
-        if max(abs(ddE_chi)) != 0:
-            axes[2,2].set_xlim([-max(abs(ddE_chi)),max(abs(ddE_chi))])
+        if show_G:
+            axes[1,0].plot(conc, ddA)
+            axes[1,0].plot(conc, ddA_nu)
+            axes[1,0].plot(conc, ddA_chi)
+            axes[1,0].plot(conc, ddA_eps)
+            if _is_valid_data(exp_conc, exp_ddG):
+                axes[1,0].errorbar(exp_conc, exp_ddG, yerr=_clean_yerr(err_ddG, len(exp_ddG)), marker='o', ls='', capsize=10, label='_nolegend_')
+            axes[1,0].set_xlabel(str_conc)
+            axes[1,0].set_ylabel(r'$\Delta\Delta G_i^{0}$ '+units)
+            axes[1,0].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
         else:
-            axes[2,2].set_xlim([-max(abs(TddS_chi)),max(abs(TddS_chi))])
-        axes[2,2].set_ylim([-max(abs(TddS_chi)),max(abs(TddS_chi))])
-        axes[2,2].plot([-max(abs(ddE)),max(abs(ddE))], [-max(abs(ddE)),max(abs(ddE))], color="darkgrey",label='_nolegend_') 
-        axes[2,2].plot([-max(abs(ddE)),max(abs(ddE))], [max(abs(ddE)),-max(abs(ddE))], color="darkgrey",label='_nolegend_')
-        axes[2,2].plot(ddE, TddS)
-        axes[2,2].plot(np.zeros(TddS_nu.shape), TddS_nu)
-        axes[2,2].plot(ddE_chi, TddS_chi)
-        axes[2,2].plot(ddE_eps, TddS_eps)
-        axes[2,2].set_xlabel(r'$\Delta\Delta H_i^{0}$ '+units)
-        axes[2,2].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
-        axes[2,2].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
-        axes[2,2].locator_params(axis='both', nbins=3)
+            _display_not_fitted(axes[1,0], str_conc, r'$\Delta\Delta G_i^{0}$ '+units)
+        
+        if show_HTS:
+            axes[1,1].plot(conc, ddE)
+            axes[1,1].plot(conc, ddE_chi)
+            axes[1,1].plot(conc, ddE_eps)
+            if _is_valid_data(exp_concT, exp_ddH):
+                axes[1,1].errorbar(exp_concT, exp_ddH, yerr=_clean_yerr(err_ddH, len(exp_ddH)), marker='o', ls='', capsize=10, label='_nolegend_')
+            axes[1,1].set_xlabel(str_conc)
+            axes[1,1].set_ylabel(r'$\Delta\Delta H_i^{0}$ '+units)
+            axes[1,1].legend(['tot',r'$\chi$',r'$\varepsilon$'])
+    
+            axes[1,2].plot(conc, TddS)
+            axes[1,2].plot(conc, TddS_nu)
+            axes[1,2].plot(conc, TddS_chi)
+            axes[1,2].plot(conc, TddS_eps)
+            if _is_valid_data(exp_concT, exp_TddS):
+                axes[1,2].errorbar(exp_concT, exp_TddS, yerr=_clean_yerr(err_TddS, len(exp_TddS)), marker='o', ls='', capsize=10, label='_nolegend_')
+            axes[1,2].set_xlabel(str_conc)
+            axes[1,2].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
+            axes[1,2].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
+        else:
+            _display_not_fitted(axes[1,1], str_conc, r'$\Delta\Delta H_i^{0}$ '+units)
+            _display_not_fitted(axes[1,2], str_conc, r'$T\Delta\Delta S_i^{0}$ '+units)
+
+        if show_G:
+            axes[2,0].plot(self.model.osm, ddA)
+            axes[2,0].plot(self.model.osm, ddA_nu)
+            axes[2,0].plot(self.model.osm, ddA_chi)
+            axes[2,0].plot(self.model.osm, ddA_eps)
+            axes[2,0].set_xlabel(r'$\Pi (Osmolal)$')
+            axes[2,0].set_ylabel(r'$\Delta\Delta G_i^{0}$ '+units)
+            axes[2,0].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
+        else:
+            _display_not_fitted(axes[2,0], r'$\Pi (Osmolal)$', r'$\Delta\Delta G_i^{0}$ '+units)
+
+        if show_HTS:
+            axes[2,1].plot([-max(abs(ddE)),max(abs(ddE))], [-max(abs(ddE)),max(abs(ddE))], color="darkgrey",label='_nolegend_') 
+            axes[2,1].plot([-max(abs(ddE)),max(abs(ddE))], [max(abs(ddE)),-max(abs(ddE))], color="darkgrey",label='_nolegend_')
+            axes[2,1].plot(ddE, TddS)
+            axes[2,1].plot(np.zeros(TddS_nu.shape), TddS_nu)
+            axes[2,1].plot(ddE_chi, TddS_chi)
+            axes[2,1].plot(ddE_eps, TddS_eps)
+            if _is_valid_data(exp_ddH, exp_TddS):
+                axes[2,1].plot(exp_ddH, exp_TddS, 'o', label='_nolegend_')   
+            axes[2,1].set_xlabel(r'$\Delta\Delta H_i^{0}$ '+units)
+            axes[2,1].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
+            axes[2,1].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
+    
+    
+            if max(abs(ddE_chi)) != 0:
+                axes[2,2].set_xlim([-max(abs(ddE_chi)),max(abs(ddE_chi))])
+            else:
+                axes[2,2].set_xlim([-max(abs(TddS_chi)),max(abs(TddS_chi))])
+            axes[2,2].set_ylim([-max(abs(TddS_chi)),max(abs(TddS_chi))])
+            axes[2,2].plot([-max(abs(ddE)),max(abs(ddE))], [-max(abs(ddE)),max(abs(ddE))], color="darkgrey",label='_nolegend_') 
+            axes[2,2].plot([-max(abs(ddE)),max(abs(ddE))], [max(abs(ddE)),-max(abs(ddE))], color="darkgrey",label='_nolegend_')
+            axes[2,2].plot(ddE, TddS)
+            axes[2,2].plot(np.zeros(TddS_nu.shape), TddS_nu)
+            axes[2,2].plot(ddE_chi, TddS_chi)
+            axes[2,2].plot(ddE_eps, TddS_eps)
+            axes[2,2].set_xlabel(r'$\Delta\Delta H_i^{0}$ '+units)
+            axes[2,2].set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
+            axes[2,2].legend(['tot',r'$\nu$',r'$\chi$',r'$\varepsilon$'])
+            axes[2,2].locator_params(axis='both', nbins=3)
+        else:
+            _display_not_fitted(axes[2,1], r'$\Delta\Delta H_i^{0}$ '+units, r'$T\Delta\Delta S_i^{0}$ '+units)
+            _display_not_fitted(axes[2,2], r'$\Delta\Delta H_i^{0}$ '+units, r'$T\Delta\Delta S_i^{0}$ '+units)
+            
         return fig
 
 

@@ -501,7 +501,8 @@ _defaults = {
     "fitted_epsTS2": None, "fitted_epsTS3": None, "fitted_epsTS23": None,
     "fit_updated": False,
     "fit_success_msg": None,
-    "fit_warning_msg": None
+    "fit_warning_msg": None,
+    "is_fitting_mode": False
 }
 for _k, _v in _defaults.items():
     if _k not in st.session_state:
@@ -1209,6 +1210,7 @@ with col_sim:
             # Store solved model object in session state so plots can persist and update dynamically!
             st.session_state["solved_model"] = model
             st.session_state["solved_model_type"] = model_type
+            st.session_state["is_fitting_mode"] = False
             
         except Exception as e:
             st.error(f"Error during simulation: {e}")
@@ -1287,6 +1289,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             
                             st.session_state["fit_success_msg"] = f"Successfully fitted eps: {model.eps:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
@@ -1335,6 +1338,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             
                             st.session_state["fit_success_msg"] = f"Successfully fitted epsTS: {model.epsTS:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
@@ -1420,6 +1424,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             st.session_state["fit_success_msg"] = f"Successfully fitted eps2: {model.eps2:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
@@ -1467,6 +1472,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             st.session_state["fit_success_msg"] = f"Successfully fitted eps3: {model.eps3:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
@@ -1526,6 +1532,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             st.session_state["fit_success_msg"] = f"Successfully fitted eps23: {model.eps23:.4f}"
                             if hasattr(model, "res") and hasattr(model.res, "success") and not model.res.success:
                                 msg = getattr(model.res, "message", "Optimizer did not converge.")
@@ -1580,6 +1587,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             st.session_state["fit_success_msg"] = f"Successfully fitted epsTS2: {model.epsTS2:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
@@ -1630,6 +1638,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             st.session_state["fit_success_msg"] = f"Successfully fitted epsTS3: {model.epsTS3:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
@@ -1692,6 +1701,7 @@ with col_fit:
                             st.session_state["fit_updated"] = True
                             st.session_state["solved_model"] = model
                             st.session_state["solved_model_type"] = model_type
+                            st.session_state["is_fitting_mode"] = True
                             st.session_state["fit_success_msg"] = f"Successfully fitted epsTS23: {model.epsTS23:.4f}"
                             if hasattr(model, "resTS") and hasattr(model.resTS, "success") and not model.resTS.success:
                                 msg = getattr(model.resTS, "message", "Optimizer did not converge.")
@@ -1777,7 +1787,16 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             
             # Setup experimental values to overlay if enabled
             folding_plot = (plot_unit == "kJ/mol")
-            plot_kwargs = {"concentration_type": conc_type_plot, "folding": folding_plot}
+            
+            show_G = True
+            show_HTS = True
+            if st.session_state.get("is_fitting_mode", False):
+                if st.session_state.get("fitted_eps") is None:
+                    show_G = False
+                if st.session_state.get("fitted_epsTS") is None:
+                    show_HTS = False
+            
+            plot_kwargs = {"concentration_type": conc_type_plot, "folding": folding_plot, "show_G": show_G, "show_HTS": show_HTS}
             if show_exp:
                 # Convert concentrations dynamically to match plotted unit
                 if st.session_state.get("exp_conc_G") is not None:
@@ -1811,24 +1830,29 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
             
         else: # Ternary
             st.subheader("Ternary Standard Presets")
-            preset_plot = st.selectbox(
-                "Select Standard Plot",
-                [
-                    "ΔΔG (3x3 contour)",
-                    "phiS (Contours of subdomain concentrations)",
-                    "Ms (Contours of subdomain volume fractions)",
-                    "mus2 (Contours of subdomain 2 chemical potentials)",
-                    "mus3 (Contours of subdomain 3 chemical potentials)",
-                    "TΔS_mix (Contours of mixing entropy)",
-                    "ΔG_mix (Contours of mixing free energy)",
-                    "ΔΔG_mu (Contours of ΔΔG chemical potentials)",
-                    "TΔΔS (Contours of TΔΔS entropy)",
-                    "ΔΔH (Contours of ΔΔH enthalpy)",
-                    "Gamma (Contours of preferential interaction coefficients)",
-                    "Gamma_mu (Contours of preferential interaction mu)",
-                    "Gamma_mu_der (Contours of preferential interaction derivatives)"
-                ]
-            )
+            
+            presets = [
+                "ΔΔG (3x3 contour)",
+                "phiS (Contours of subdomain concentrations)",
+                "Ms (Contours of subdomain volume fractions)",
+                "mus2 (Contours of subdomain 2 chemical potentials)",
+                "mus3 (Contours of subdomain 3 chemical potentials)",
+                "TΔS_mix (Contours of mixing entropy)",
+                "ΔG_mix (Contours of mixing free energy)",
+                "ΔΔG_mu (Contours of ΔΔG chemical potentials)",
+                "TΔΔS (Contours of TΔΔS entropy)",
+                "ΔΔH (Contours of ΔΔH enthalpy)",
+                "Gamma (Contours of preferential interaction coefficients)",
+                "Gamma_mu (Contours of preferential interaction mu)",
+                "Gamma_mu_der (Contours of preferential interaction derivatives)"
+            ]
+            if st.session_state.get("is_fitting_mode", False):
+                if st.session_state.get("fitted_eps23") is None:
+                    presets = [p for p in presets if "ΔΔG" not in p and "ΔG_mix" not in p]
+                if st.session_state.get("fitted_epsTS23") is None:
+                    presets = [p for p in presets if "TΔΔS" not in p and "ΔΔH" not in p and "TΔS_mix" not in p]
+                    
+            preset_plot = st.selectbox("Select Standard Plot", presets)
             plotter = fh_crowding.TernaryPlotter(solved_model)
             
             if "ΔΔG (3x3 contour)" in preset_plot:
@@ -1901,6 +1925,12 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 "Entropy [kJ]": ("TddS_kj", r'$T\Delta\Delta S^{0}\ \mathrm{[kJ/mol]}$'),
                 "Entropy [kcal]": ("TddS_kcal", r'$T\Delta\Delta S^{0}\ \mathrm{[kcal/mol]}$'),
             }
+            
+            if st.session_state.get("is_fitting_mode", False):
+                if st.session_state.get("fitted_eps") is None:
+                    properties = {k: v for k, v in properties.items() if "Free Energy" not in k}
+                if st.session_state.get("fitted_epsTS") is None:
+                    properties = {k: v for k, v in properties.items() if "Enthalpy" not in k and "Entropy" not in k}
             
             col1, col2 = st.columns(2)
             with col1:
@@ -2105,6 +2135,18 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 "Preferential Interaction 1,3 (Gamma_1_3)": ("Gamma_1_3", r'$\Delta\Gamma_{1,3}$', "ΔΓ₁,₃"),
             }
             
+            if st.session_state.get("is_fitting_mode", False) and tern_mode in ["2D Contour Plot", "1D Slice Plot"]:
+                has_eps = (st.session_state.get("fitted_eps2") is not None and 
+                           st.session_state.get("fitted_eps3") is not None and 
+                           st.session_state.get("fitted_eps23") is not None)
+                has_epsTS = (st.session_state.get("fitted_epsTS2") is not None and 
+                             st.session_state.get("fitted_epsTS3") is not None and 
+                             st.session_state.get("fitted_epsTS23") is not None)
+                if not has_eps:
+                    properties_contour = {k: v for k, v in properties_contour.items() if "Free Energy" not in k}
+                if not has_epsTS:
+                    properties_contour = {k: v for k, v in properties_contour.items() if "Enthalpy" not in k and "Entropy" not in k}
+            
             if tern_mode == "2D Contour Plot":
                 z_name = st.selectbox("Property to plot (Contours over phi2 vs phi3)", list(properties_contour.keys()))
                 z_attr, z_label, z_label_unicode = properties_contour[z_name]
@@ -2263,42 +2305,59 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 z_surface = getattr(solved_model, z3d_attr)
                 pfig3d = go.Figure()
 
+                is_fitting = st.session_state.get("is_fitting_mode", False)
+                show_surface = True
+                show_edge2 = True
+                show_edge3 = True
+                
+                if is_fitting:
+                    if "Free Energy" in z3d_name:
+                        show_surface = st.session_state.get("fitted_eps23") is not None
+                        show_edge2 = st.session_state.get("fitted_eps2") is not None
+                        show_edge3 = st.session_state.get("fitted_eps3") is not None
+                    elif "Enthalpy" in z3d_name or "Entropy" in z3d_name:
+                        show_surface = st.session_state.get("fitted_epsTS23") is not None
+                        show_edge2 = st.session_state.get("fitted_epsTS2") is not None
+                        show_edge3 = st.session_state.get("fitted_epsTS3") is not None
+
                 # Model surface
-                pfig3d.add_trace(go.Surface(
-                    x=solved_model.phi2,
-                    y=solved_model.phi3,
-                    z=z_surface,
-                    colorscale=[[0, "#f8f9fa"], [1, styles.PLOT_TOTAL_COLOR]],
-                    opacity=0.65,
-                    name="Model surface",
-                    colorbar=dict(title=z3d_label, thickness=14, len=0.7),
-                    showscale=True,
-                    hovertemplate="φ₂=%{x:.3f}<br>φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Model</extra>",
-                ))
+                if show_surface:
+                    pfig3d.add_trace(go.Surface(
+                        x=solved_model.phi2,
+                        y=solved_model.phi3,
+                        z=z_surface,
+                        colorscale=[[0, "#f8f9fa"], [1, styles.PLOT_TOTAL_COLOR]],
+                        opacity=0.65,
+                        name="Model surface",
+                        colorbar=dict(title=z3d_label, thickness=14, len=0.7),
+                        showscale=True,
+                        hovertemplate="φ₂=%{x:.3f}<br>φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>Model</extra>",
+                    ))
 
                 # Binary edge lines: cosolute-2 axis (phi3 = 0) and cosolute-3 axis (phi2 = 0)
-                # These come from the first row/column of the ternary grid (phi3~0 and phi2~0)
                 try:
                     phi2_axis_3d = solved_model.phi2[0, :]
                     phi3_axis_3d = solved_model.phi3[:, 0]
 
                     # Edge along phi3 = 0 (cosolute-2 axis)
-                    z_edge2 = z_surface[0, :]
-                    pfig3d.add_trace(go.Scatter3d(
-                        x=phi2_axis_3d, y=np.zeros_like(phi2_axis_3d), z=z_edge2,
-                        mode="lines", name="φ₃ = 0 (cosolute 2 axis)",
-                        line=dict(color=styles.PLOT_NU_COLOR, width=5),
-                        hovertemplate="φ₂=%{x:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>φ₃=0</extra>",
-                    ))
+                    if show_edge2:
+                        z_edge2 = z_surface[0, :]
+                        pfig3d.add_trace(go.Scatter3d(
+                            x=phi2_axis_3d, y=np.zeros_like(phi2_axis_3d), z=z_edge2,
+                            mode="lines", name="φ₃ = 0 (cosolute 2 axis)",
+                            line=dict(color=styles.PLOT_NU_COLOR, width=5),
+                            hovertemplate="φ₂=%{x:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>φ₃=0</extra>",
+                        ))
 
                     # Edge along phi2 = 0 (cosolute-3 axis)
-                    z_edge3 = z_surface[:, 0]
-                    pfig3d.add_trace(go.Scatter3d(
-                        x=np.zeros_like(phi3_axis_3d), y=phi3_axis_3d, z=z_edge3,
-                        mode="lines", name="φ₂ = 0 (cosolute 3 axis)",
-                        line=dict(color=styles.PLOT_CHI_COLOR, width=5),
-                        hovertemplate="φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>φ₂=0</extra>",
-                    ))
+                    if show_edge3:
+                        z_edge3 = z_surface[:, 0]
+                        pfig3d.add_trace(go.Scatter3d(
+                            x=np.zeros_like(phi3_axis_3d), y=phi3_axis_3d, z=z_edge3,
+                            mode="lines", name="φ₂ = 0 (cosolute 3 axis)",
+                            line=dict(color=styles.PLOT_CHI_COLOR, width=5),
+                            hovertemplate="φ₃=%{y:.3f}<br>" + z3d_label + "=%{z:.4f}<extra>φ₂=0</extra>",
+                        ))
                 except Exception:
                     pass  # Edge lines are optional
 
