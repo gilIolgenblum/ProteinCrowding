@@ -810,7 +810,10 @@ if model_type == "Binary Crowding Model":
         st.form_submit_button("Apply Parameters", use_container_width=True)
 
     try:
-        cosolute = fh_crowding.Cosolute(nu=nu, chi=chi, chiTS=chiTS)
+        cosolute = fh_crowding.Cosolute(
+            nu=nu, chi=chi, chiTS=chiTS,
+            phiC_max=0.01, dphiC=0.01
+        )
         model = fh_crowding.BinaryCrowdingModel(
             protein=protein, cosolute=cosolute, eps=eps, epsTS=epsTS,
             dphiC=dphiC, phiC_max=phiC_max, T=T,
@@ -958,6 +961,8 @@ else:
             nu2=nu2, nu3=nu3,
             chi12=chi12, chi13=chi13, chi23=chi23,
             chiTS12=chiTS12, chiTS13=chiTS13, chiTS23=chiTS23,
+            phi2_max=0.01, dphi2=0.01,
+            phi3_max=0.01, dphi3=0.01
         )
         model = fh_crowding.TernaryCrowdingModel(
             protein=protein, cosolutes=cosolutes,
