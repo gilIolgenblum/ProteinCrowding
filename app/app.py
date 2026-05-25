@@ -1843,13 +1843,15 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 "TΔΔS (Contours of TΔΔS entropy)",
                 "ΔΔH (Contours of ΔΔH enthalpy)",
                 "Gamma (Contours of preferential interaction coefficients)",
-                "Gamma_mu (Contours of preferential interaction mu)",
-                "Gamma_mu_der (Contours of preferential interaction derivatives)"
+                "Gamma_mu (Contours of preferential interaction mu)"
             ]
             if st.session_state.get("is_fitting_mode", False):
-                if st.session_state.get("fitted_eps23") is None:
-                    presets = [p for p in presets if "ΔΔG" not in p and "ΔG_mix" not in p]
-                if st.session_state.get("fitted_epsTS23") is None:
+                has_eps = (st.session_state.get("fitted_eps2") is not None and 
+                           st.session_state.get("fitted_eps3") is not None and 
+                           st.session_state.get("fitted_eps23") is not None)
+                if not has_eps:
+                    presets = ["Ms (Contours of subdomain volume fractions)"]
+                elif st.session_state.get("fitted_epsTS23") is None:
                     presets = [p for p in presets if "TΔΔS" not in p and "ΔΔH" not in p and "TΔS_mix" not in p]
                     
             preset_plot = st.selectbox("Select Standard Plot", presets)
@@ -1875,8 +1877,6 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                 fig = plotter.plot_TddS()
             elif "ΔΔH" in preset_plot:
                 fig = plotter.plot_ddH()
-            elif "Gamma_mu_der" in preset_plot:
-                fig = plotter.plot_Gamma_mu_der()
             elif "Gamma_mu" in preset_plot:
                 fig = plotter.plot_Gamma_mu()
             elif "Gamma" in preset_plot:
@@ -2143,8 +2143,8 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
                              st.session_state.get("fitted_epsTS3") is not None and 
                              st.session_state.get("fitted_epsTS23") is not None)
                 if not has_eps:
-                    properties_contour = {k: v for k, v in properties_contour.items() if "Free Energy" not in k}
-                if not has_epsTS:
+                    properties_contour = {k: v for k, v in properties_contour.items() if "Osmotic Pressure" in k}
+                elif not has_epsTS:
                     properties_contour = {k: v for k, v in properties_contour.items() if "Enthalpy" not in k and "Entropy" not in k}
             
             if tern_mode == "2D Contour Plot":
