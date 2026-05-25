@@ -760,12 +760,12 @@ else:
         },
         help="Overrides cosolute-2 parameters only.",
     )
-    nu2     = st.sidebar.number_input("ν₂ (excluded volume)",          key="nu2",     step=0.01, value=1.0, min_value=1.0, format="%.4f")
-    chi12   = st.sidebar.number_input("χ₁₂ (non-ideal mixing)",          key="chi12",   step=0.01, value=0.4, format="%.4f")
-    chiTS12 = st.sidebar.number_input("χₜₛ₁₂ (entropy component)",      key="chiTS12", step=0.01, value=4.0, format="%.4f")
+    nu2     = st.sidebar.number_input("ν₂ (excluded volume)",          key="nu2",     step=0.01, min_value=1.0, format="%.4f")
+    chi12   = st.sidebar.number_input("χ₁₂ (non-ideal mixing)",          key="chi12",   step=0.01, format="%.4f")
+    chiTS12 = st.sidebar.number_input("χₜₛ₁₂ (entropy component)",      key="chiTS12", step=0.01, format="%.4f")
     
-    eps2    = st.sidebar.number_input("ε₂ (soft interaction)",           step=0.01, value=0.0, format="%.4f", key="tern_eps2_input")
-    epsTS2  = st.sidebar.number_input("εTS₂ (entropy component of ε)",  step=0.01, value=0.0, format="%.4f", key="tern_epsts2_input")
+    eps2    = st.sidebar.number_input("ε₂ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps2_input")
+    epsTS2  = st.sidebar.number_input("εTS₂ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts2_input")
 
     # --- Cosolute 3 ---
     st.sidebar.subheader("Cosolute 3")
@@ -782,22 +782,22 @@ else:
         },
         help="Overrides cosolute-3 parameters only.",
     )
-    nu3     = st.sidebar.number_input("ν₃ (excluded volume)",          key="nu3",     step=0.01, value=1.0, min_value=1.0, format="%.4f")
-    chi13   = st.sidebar.number_input("χ₁₃ (non-ideal mixing)",          key="chi13",   step=0.01, value=0.4, format="%.4f")
-    chiTS13 = st.sidebar.number_input("χₜₛ₁₃ (entropy component)",      key="chiTS13", step=0.01, value=4.0, format="%.4f")
+    nu3     = st.sidebar.number_input("ν₃ (excluded volume)",          key="nu3",     step=0.01, min_value=1.0, format="%.4f")
+    chi13   = st.sidebar.number_input("χ₁₃ (non-ideal mixing)",          key="chi13",   step=0.01, format="%.4f")
+    chiTS13 = st.sidebar.number_input("χₜₛ₁₃ (entropy component)",      key="chiTS13", step=0.01, format="%.4f")
     
-    eps3    = st.sidebar.number_input("ε₃ (soft interaction)",           step=0.01, value=0.0, format="%.4f", key="tern_eps3_input")
-    epsTS3  = st.sidebar.number_input("εTS₃ (entropy component of ε)",  step=0.01, value=0.0, format="%.4f", key="tern_epsts3_input")
+    eps3    = st.sidebar.number_input("ε₃ (soft interaction)",           step=0.01, format="%.4f", key="tern_eps3_input")
+    epsTS3  = st.sidebar.number_input("εTS₃ (entropy component of ε)",  step=0.01, format="%.4f", key="tern_epsts3_input")
 
     # --- Cosolute–cosolute non-ideal mixing ---
     st.sidebar.subheader("Cosolute–Cosolute Mixing (χ₂₃)")
-    chi23   = st.sidebar.number_input("χ₂₃ (non-ideal mixing)",       key="chi23",   step=0.01, value=0.0, format="%.4f")
-    chiTS23 = st.sidebar.number_input("χₜₛ₂₃ (entropy component)",   key="chiTS23", step=0.01, value=0.0, format="%.4f")
+    chi23   = st.sidebar.number_input("χ₂₃ (non-ideal mixing)",       key="chi23",   step=0.01, format="%.4f")
+    chiTS23 = st.sidebar.number_input("χₜₛ₂₃ (entropy component)",   key="chiTS23", step=0.01, format="%.4f")
 
     # --- Synergy parameter (three-body coupling) ---
     st.sidebar.subheader("Synergy Parameter (ε₂₃)")
-    eps23   = st.sidebar.number_input("ε₂₃ (synergy)",                step=0.01, value=0.0, format="%.4f", key="eps23")
-    epsTS23 = st.sidebar.number_input("εTS₂₃ (entropy component)",   step=0.01, value=0.0, format="%.4f", key="epsTS23")
+    eps23   = st.sidebar.number_input("ε₂₃ (synergy)",                step=0.01, format="%.4f", key="eps23")
+    epsTS23 = st.sidebar.number_input("εTS₂₃ (entropy component)",   step=0.01, format="%.4f", key="epsTS23")
 
     # --- Concentration grid ---
     st.sidebar.subheader("Simulation Grid")
