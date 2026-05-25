@@ -1769,11 +1769,12 @@ if "solved_model" in st.session_state and st.session_state["solved_model_type"] 
     # Checkbox to overlay experimental data (shown only if some exp data is uploaded)
     show_exp = False
     if st.session_state["exp_data_loaded"]:
-        show_exp = st.checkbox("Overlay uploaded experimental data on plots", value=True, key="show_exp_data")
+        show_exp = st.checkbox("Overlay uploaded experimental data on plots", value=False, key="show_exp_data")
         
     plot_option = st.selectbox(
         "Select Plotting Mode",
-        ["Standard Preset Plot", "Custom Axis Plot"]
+        ["Standard Preset Plot", "Custom Axis Plot"],
+        key="plot_mode_selectbox"
     )
     
     if plot_option == "Standard Preset Plot":
