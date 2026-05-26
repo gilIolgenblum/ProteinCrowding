@@ -20,6 +20,22 @@ To install with app dependencies (e.g., Streamlit for the local web app):
 pip install -e .[app]
 ```
 
+## Tutorials
+
+We provide several user-facing Jupyter notebook tutorials in the `tutorials/` directory to help you learn the Python API:
+
+1. `00_getting_started.ipynb`: Installation, scientific background, and setup.
+2. `01_binary_plug_and_play_simulation.ipynb`: Running forward binary simulations.
+3. `02_binary_fit_experimental_data.ipynb`: Fitting soft interaction parameters to binary data.
+4. `03_ternary_plug_and_play_simulation.ipynb`: Running forward simulations for 2-cosolute mixtures.
+5. `04_ternary_fit_experimental_data.ipynb`: Fitting soft interaction parameters to ternary 2D data grids.
+6. `05_parameter_sensitivity_and_interpretation.ipynb`: Understanding the physical effects of SASA and Flory-Huggins $\chi$.
+7. `06_exporting_results_and_figures.ipynb`: Extracting datasets and tweaking matplotlib charts for publication.
+
+Start with `tutorials/00_getting_started.ipynb`!
+
+Note: While the Streamlit app is available for non-coding users, these notebooks are intended for reproducible scripted analysis.
+
 ## Minimal Working Example
 
 ```python

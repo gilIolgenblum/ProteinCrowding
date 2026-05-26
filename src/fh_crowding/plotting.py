@@ -201,6 +201,140 @@ class BinaryPlotter:
         return fig
 
 
+    def _get_conc_info(self, concentration_type):
+        if concentration_type == 'phi':
+            return self.model.phiC, r'$\phi_C$'
+        elif concentration_type == 'molar':
+            return self.model.molar, 'molar'
+        elif concentration_type == 'molal':
+            return self.model.molal, 'molal'
+        raise ValueError("concentration_type must be 'phi', 'molar', or 'molal'")
+
+    def _get_thermo_data(self, folding):
+        if folding:
+            return (self.model.ddA_kj, self.model.ddA_nu_kj, self.model.ddA_chi_kj, self.model.ddA_eps_kj,
+                    self.model.ddE_kj, self.model.ddE_chi_kj, self.model.ddE_eps_kj,
+                    self.model.TddS_kj, self.model.TddS_nu_kj, self.model.TddS_chi_kj, self.model.TddS_eps_kj,
+                    '[kJ]')
+        else:
+            return (self.model.ddA_kcal, self.model.ddA_nu_kcal, self.model.ddA_chi_kcal, self.model.ddA_eps_kcal,
+                    self.model.ddE_kcal, self.model.ddE_chi_kcal, self.model.ddE_eps_kcal,
+                    self.model.TddS_kcal, self.model.TddS_nu_kcal, self.model.TddS_chi_kcal, self.model.TddS_eps_kcal,
+                    '[kcal]')
+
+    def plot_gamma(self, concentration_type='phi'):
+        conc, str_conc = self._get_conc_info(concentration_type)
+        fig, ax = plt.subplots(figsize=(5,4))
+        ax.plot(conc, self.model.gamma)
+        ax.set_xlabel(str_conc)
+        ax.set_ylabel(r'$\Delta\Gamma_S$')
+        return fig
+
+    def plot_ddG(self, concentration_type='phi', folding=True, exp_conc=np.nan, exp_ddG=np.nan, err_ddG=np.nan):
+        conc, str_conc = self._get_conc_info(concentration_type)
+        ddA, ddA_nu, ddA_chi, ddA_eps, _, _, _, _, _, _, _, units = self._get_thermo_data(folding)
+        
+        if not folding and _is_valid_data(exp_conc, exp_ddG):
+            exp_ddG = np.array(exp_ddG) / 4.184
+            if err_ddG is not None and not (isinstance(err_ddG, float) and np.isnan(err_ddG)):
+                err_ddG = np.array(err_ddG) / 4.184
+
+        fig, ax = plt.subplots(figsize=(5,4))
+        ax.plot(conc, ddA, label='tot')
+        ax.plot(conc, ddA_nu, label=r'$\nu$')
+        ax.plot(conc, ddA_chi, label=r'$\chi$')
+        ax.plot(conc, ddA_eps, label=r'$\varepsilon$')
+        if _is_valid_data(exp_conc, exp_ddG):
+            ax.errorbar(exp_conc, exp_ddG, yerr=_clean_yerr(err_ddG, len(exp_ddG)), marker='o', ls='', capsize=5, label='_nolegend_')
+        ax.set_xlabel(str_conc)
+        ax.set_ylabel(r'$\Delta\Delta G_i^{0}$ '+units)
+        ax.legend()
+        return fig
+
+    def plot_ddH(self, concentration_type='phi', folding=True, exp_conc=np.nan, exp_ddH=np.nan, err_ddH=np.nan):
+        conc, str_conc = self._get_conc_info(concentration_type)
+        _, _, _, _, ddE, ddE_chi, ddE_eps, _, _, _, _, units = self._get_thermo_data(folding)
+        
+        if not folding and _is_valid_data(exp_conc, exp_ddH):
+            exp_ddH = np.array(exp_ddH) / 4.184
+            if err_ddH is not None and not (isinstance(err_ddH, float) and np.isnan(err_ddH)):
+                err_ddH = np.array(err_ddH) / 4.184
+
+        fig, ax = plt.subplots(figsize=(5,4))
+        ax.plot(conc, ddE, label='tot')
+        ax.plot(conc, ddE_chi, label=r'$\chi$')
+        ax.plot(conc, ddE_eps, label=r'$\varepsilon$')
+        if _is_valid_data(exp_conc, exp_ddH):
+            ax.errorbar(exp_conc, exp_ddH, yerr=_clean_yerr(err_ddH, len(exp_ddH)), marker='o', ls='', capsize=5, label='_nolegend_')
+        ax.set_xlabel(str_conc)
+        ax.set_ylabel(r'$\Delta\Delta H_i^{0}$ '+units)
+        ax.legend()
+        return fig
+
+    def plot_TddS(self, concentration_type='phi', folding=True, exp_conc=np.nan, exp_TddS=np.nan, err_TddS=np.nan):
+        conc, str_conc = self._get_conc_info(concentration_type)
+        _, _, _, _, _, _, _, TddS, TddS_nu, TddS_chi, TddS_eps, units = self._get_thermo_data(folding)
+        
+        if not folding and _is_valid_data(exp_conc, exp_TddS):
+            exp_TddS = np.array(exp_TddS) / 4.184
+            if err_TddS is not None and not (isinstance(err_TddS, float) and np.isnan(err_TddS)):
+                err_TddS = np.array(err_TddS) / 4.184
+
+        fig, ax = plt.subplots(figsize=(5,4))
+        ax.plot(conc, TddS, label='tot')
+        ax.plot(conc, TddS_nu, label=r'$\nu$')
+        ax.plot(conc, TddS_chi, label=r'$\chi$')
+        ax.plot(conc, TddS_eps, label=r'$\varepsilon$')
+        if _is_valid_data(exp_conc, exp_TddS):
+            ax.errorbar(exp_conc, exp_TddS, yerr=_clean_yerr(err_TddS, len(exp_TddS)), marker='o', ls='', capsize=5, label='_nolegend_')
+        ax.set_xlabel(str_conc)
+        ax.set_ylabel(r'$T\Delta\Delta S_i^{0}$ '+units)
+        ax.legend()
+        return fig
+
+    def plot_mu(self, concentration_type='phi'):
+        conc, str_conc = self._get_conc_info(concentration_type)
+        fig, ax = plt.subplots(figsize=(5,4))
+        ax.plot(conc, self.model.muC, label=r'$\mu_C$')
+        ax.set_xlabel(str_conc)
+        ax.set_ylabel('Cosolute Chemical Potential')
+        ax.legend()
+        return fig
+
+    def plot_osm(self, concentration_type='phi'):
+        conc, str_conc = self._get_conc_info(concentration_type)
+        fig, ax = plt.subplots(figsize=(5,4))
+        ax.plot(conc, self.model.osm)
+        ax.set_xlabel(str_conc)
+        ax.set_ylabel(r'$\Pi$ (Osmolal)')
+        return fig
+
+    def plot_EEC(self, folding=True, exp_ddH=np.nan, exp_TddS=np.nan):
+        _, _, _, _, ddE, ddE_chi, ddE_eps, TddS, TddS_nu, TddS_chi, TddS_eps, units = self._get_thermo_data(folding)
+        
+        if not folding:
+            if _is_valid_data(exp_ddH, exp_TddS):
+                exp_ddH = np.array(exp_ddH) / 4.184
+                exp_TddS = np.array(exp_TddS) / 4.184
+        
+        fig, ax = plt.subplots(figsize=(5,5))
+        max_val = max(np.max(np.abs(ddE)), np.max(np.abs(TddS)))
+        ax.plot([-max_val, max_val], [-max_val, max_val], color="darkgrey", label='_nolegend_') 
+        ax.plot([-max_val, max_val], [max_val, -max_val], color="darkgrey", label='_nolegend_')
+        
+        ax.plot(ddE, TddS, label='tot')
+        ax.plot(np.zeros(TddS_nu.shape), TddS_nu, label=r'$\nu$')
+        ax.plot(ddE_chi, TddS_chi, label=r'$\chi$')
+        ax.plot(ddE_eps, TddS_eps, label=r'$\varepsilon$')
+        
+        if _is_valid_data(exp_ddH, exp_TddS):
+            ax.plot(exp_ddH, exp_TddS, 'o', label='_nolegend_')
+            
+        ax.set_xlabel(r'$\Delta\Delta H_i^{0}$ ' + units)
+        ax.set_ylabel(r'$T\Delta\Delta S_i^{0}$ ' + units)
+        ax.legend()
+        return fig
+
 class TernaryPlotter:
     def __init__(self, model: TernaryCrowdingModel):
         self.model = model
