@@ -515,6 +515,85 @@ def convert_exp_conc(exp_conc, from_type, to_type, model, is_ternary=False, coso
 # ---------------------------------------------------------------------------
 # Helper function to read CSV with separator auto-detection (comma or tab)
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Auto-adjust grid bounds to encompass experimental data
+# ---------------------------------------------------------------------------
+def auto_adjust_phi_max():
+    if not st.session_state.get("exp_data_loaded"):
+        return
+        
+    model_type = st.session_state.get("last_model_type", "Binary Crowding Model")
+    from_type = st.session_state.get("uploaded_conc_unit", "phi")
+    Vs = 0.018 # standard in the model
+    
+    if model_type == "Binary Crowding Model":
+        conc_list = []
+        for k in ["exp_conc_G", "exp_conc_T"]:
+            if st.session_state.get(k) is not None:
+                conc_list.extend(st.session_state[k])
+        if not conc_list:
+            return
+            
+        max_conc = max(conc_list)
+        nu = st.session_state.get("bin_nu", 1.0)
+        
+        if from_type == "phi":
+            phi = max_conc
+        elif from_type == "molar":
+            phi = max_conc * nu * Vs
+        elif from_type == "molal":
+            K = max_conc * 18 * nu * 1e-3
+            phi = K / (1.0 + K)
+        else:
+            phi = max_conc
+            
+        # Add 10% padding, ensure at least 0.01, round neatly
+        new_max = min(1.0, max(0.01, round(phi * 1.1, 3)))
+        st.session_state["bin_phiC_max"] = new_max
+        
+    else:
+        conc2_list = []
+        conc3_list = []
+        
+        for k in ["exp_conc2_G", "exp_conc2_T", "exp_conc2"]:
+            if st.session_state.get(k) is not None:
+                conc2_list.extend(st.session_state[k])
+                
+        for k in ["exp_conc3_G", "exp_conc3_T", "exp_conc3"]:
+            if st.session_state.get(k) is not None:
+                conc3_list.extend(st.session_state[k])
+                
+        if not conc2_list or not conc3_list:
+            return
+            
+        max_c2 = max(conc2_list)
+        max_c3 = max(conc3_list)
+        
+        nu2 = st.session_state.get("nu2", 1.0)
+        nu3 = st.session_state.get("nu3", 1.0)
+        
+        if from_type == "phi":
+            phi2 = max_c2
+            phi3 = max_c3
+        elif from_type == "molar":
+            phi2 = max_c2 * nu2 * Vs
+            phi3 = max_c3 * nu3 * Vs
+        elif from_type == "molal":
+            x2 = max_c2 * 18 * nu2 * 1e-3
+            x3 = max_c3 * 18 * nu3 * 1e-3
+            phi2 = x2 / (1.0 + x2 + x3)
+            phi3 = x3 / (1.0 + x2 + x3)
+        else:
+            phi2 = max_c2
+            phi3 = max_c3
+            
+        new_max2 = min(1.0, max(0.01, round(phi2 * 1.1, 3)))
+        new_max3 = min(1.0, max(0.01, round(phi3 * 1.1, 3)))
+        
+        st.session_state["tern_phi2_max"] = new_max2
+        st.session_state["tern_phi3_max"] = new_max3
+
 def read_uploaded_csv(file_obj):
     pos = file_obj.tell()
     try:
@@ -664,6 +743,7 @@ model_type = st.sidebar.selectbox(
 # ---------------------------------------------------------------------------
 st.sidebar.markdown("---")
 with st.sidebar.expander("💾 Save/Load Session", expanded=False):
+    st.markdown("Save your current model parameters, fitted values, and grid configuration to a JSON file. You can upload this file later to perfectly restore your session state!")
     st.markdown("### Save Current Session")
     try:
         session_json = session_io.serialize_session_state()
@@ -768,7 +848,9 @@ if model_type == "Binary Crowding Model":
              "You can still edit the values below manually.",
     )
 
+
     with st.sidebar.form("bin_params_form"):
+
         st.subheader("Model Parameters")
         nu    = st.number_input("ν (excluded volume)",              key="bin_nu",    step=0.01, format="%.4f")
         chi   = st.number_input("χ (non-ideal mixing)",              key="bin_chi",   step=0.01, format="%.4f")
@@ -868,9 +950,11 @@ else:
         help="Overrides cosolute-3 parameters only.",
     )
 
+
     st.sidebar.markdown("---")
 
     with st.sidebar.form("tern_params_form"):
+
         # --- Cosolute 2 ---
         st.subheader("Cosolute 2")
         nu2     = st.number_input("ν₂ (excluded volume)",          key="nu2",     step=0.01, min_value=1.0, format="%.4f")
@@ -979,7 +1063,21 @@ else:
         st.error(f"**Numerical Error initializing Ternary Model:** {e}")
         st.stop()
 
-    citation.render_sidebar_citation()
+is_binary = (model_type == "Binary Crowding Model")
+has_binary_data = any(st.session_state.get(k) is not None for k in ["exp_conc_G", "exp_conc_T"])
+has_ternary_data = any(st.session_state.get(k) is not None for k in ["exp_conc2_G", "exp_conc2_T", "exp_conc2"])
+disable_auto_adjust = not ((is_binary and has_binary_data) or (not is_binary and has_ternary_data))
+
+st.sidebar.markdown("---")
+st.sidebar.button(
+    "📏 Auto-adjust Grid to Exp. Data",
+    on_click=auto_adjust_phi_max,
+    disabled=disable_auto_adjust,
+    use_container_width=True,
+    help="Sets the maximum grid concentration to encompass all loaded experimental data points."
+)
+
+citation.render_sidebar_citation()
 
 # ---------------------------------------------------------------------------
 # Automatic rerun if session has just been restored
